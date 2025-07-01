@@ -30,10 +30,14 @@ interface Ghost {
   direction: Position
   color: string
   vulnerable: boolean
+  type: 'blinky' | 'pinky' | 'inky' | 'clyde'
+  scatterTarget: Position
+  eaten: boolean
 }
 
 interface GameState {
   pacmon: Position
+  pacmonDirection: Position
   ghosts: Ghost[]
   pellets: Position[]
   powerPellets: Position[]
@@ -72,10 +76,12 @@ export default function PacmonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 9, y: 15 },
+    pacmonDirection: { x: 0, y: 0 },
     ghosts: [
-      { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BLUE, vulnerable: false },
-      { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false },
-      { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false }
+      { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
+      { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
+      { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_BLUE, vulnerable: false, type: 'inky', scatterTarget: { x: 18, y: 18 }, eaten: false },
+      { id: 4, position: { x: 10, y: 10 }, direction: { x: 0, y: -1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false, type: 'clyde', scatterTarget: { x: 1, y: 18 }, eaten: false }
     ],
     pellets: [],
     powerPellets: [],
@@ -111,17 +117,66 @@ export default function PacmonGame() {
         setGameState(prev => {
           let newState = { ...prev }
           
+          // Move Pacmon
+          let newPacmonPos = {
+            x: newState.pacmon.x + newState.pacmonDirection.x,
+            y: newState.pacmon.y + newState.pacmonDirection.y
+          }
+
+          // Check for wall collision
+          if (newPacmonPos.x >= 0 && newPacmonPos.x < GRID_SIZE &&
+              newPacmonPos.y >= 0 && newPacmonPos.y < GRID_SIZE &&
+              MAZE[newPacmonPos.y][newPacmonPos.x] !== 1) {
+            newState.pacmon = newPacmonPos
+
+            // Check pellet collection
+            const pelletIndex = newState.pellets.findIndex(
+              pellet => pellet.x === newState.pacmon.x && pellet.y === newState.pacmon.y
+            )
+            if (pelletIndex !== -1) {
+              newState.pellets = newState.pellets.filter((_, index) => index !== pelletIndex)
+              newState.score += 10
+            }
+
+            // Check power pellet collection
+            const powerPelletIndex = newState.powerPellets.findIndex(
+              pellet => pellet.x === newState.pacmon.x && pellet.y === newState.pacmon.y
+            )
+            if (powerPelletIndex !== -1) {
+              newState.powerPellets = newState.powerPellets.filter((_, index) => index !== powerPelletIndex)
+              newState.score += 50
+              newState.powerMode = true
+              newState.powerModeTimer = 30 // 6 seconds at 200ms intervals
+            }
+          } else {
+            // Stop Pacmon if hits a wall
+            newState.pacmonDirection = { x: 0, y: 0 }
+          }
+
           // Move ghosts
           newState.ghosts = newState.ghosts.map(ghost => {
-            let newPos = {
-              x: ghost.position.x + ghost.direction.x,
-              y: ghost.position.y + ghost.direction.y
+            if (ghost.eaten) {
+              // Eaten ghosts return to ghost house
+              if (ghost.position.x === 9 && ghost.position.y === 9) {
+                return { ...ghost, eaten: false, vulnerable: false }
+              }
+              // Simple path back to ghost house (can be improved)
+              const target = { x: 9, y: 9 }
+              const dx = target.x - ghost.position.x
+              const dy = target.y - ghost.position.y
+              let newDirection = { x: 0, y: 0 }
+
+              if (Math.abs(dx) > Math.abs(dy)) {
+                newDirection.x = dx > 0 ? 1 : -1
+              } else {
+                newDirection.y = dy > 0 ? 1 : -1
+              }
+              return { ...ghost, direction: newDirection, position: { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y } }
             }
-            
-            // Boundary check and direction change
-            if (newPos.x < 0 || newPos.x >= GRID_SIZE || newPos.y < 0 || newPos.y >= GRID_SIZE || 
-                MAZE[newPos.y][newPos.x] === 1) {
-              // Change direction randomly
+
+            let targetTile: Position
+            if (newState.powerMode) {
+              // Frightened mode: random movement
               const directions = [
                 { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
               ]
@@ -134,23 +189,77 @@ export default function PacmonGame() {
                        testPos.y >= 0 && testPos.y < GRID_SIZE && 
                        MAZE[testPos.y][testPos.x] !== 1
               })
-              
-              if (validDirections.length > 0) {
-                const newDirection = validDirections[Math.floor(Math.random() * validDirections.length)]
-                return {
-                  ...ghost,
-                  direction: newDirection,
-                  position: {
-                    x: ghost.position.x + newDirection.x,
-                    y: ghost.position.y + newDirection.y
-                  },
-                  vulnerable: newState.powerMode
+              const newDirection = validDirections[Math.floor(Math.random() * validDirections.length)]
+              targetTile = { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y }
+            } else {
+              // Chase/Scatter mode
+              switch (ghost.type) {
+                case 'blinky':
+                  targetTile = newState.pacmon
+                  break
+                case 'pinky':
+                  // 4 tiles in front of Pac-Man
+                  targetTile = {
+                    x: newState.pacmon.x + newState.pacmonDirection.x * 4,
+                    y: newState.pacmon.y + newState.pacmonDirection.y * 4
+                  }
+                  break
+                case 'inky':
+                  // Complex: depends on Pac-Man and Blinky
+                  const blinky = newState.ghosts.find(g => g.type === 'blinky')
+                  if (blinky) {
+                    const pacmanTwoAhead = {
+                      x: newState.pacmon.x + newState.pacmonDirection.x * 2,
+                      y: newState.pacmon.y + newState.pacmonDirection.y * 2
+                    }
+                    const vector = {
+                      x: pacmanTwoAhead.x - blinky.position.x,
+                      y: pacmanTwoAhead.y - blinky.position.y
+                    }
+                    targetTile = { x: blinky.position.x + vector.x * 2, y: blinky.position.y + vector.y * 2 }
+                  } else {
+                    targetTile = newState.pacmon // Fallback
+                  }
+                  break
+                case 'clyde':
+                  // Scatter if close to Pac-Man, else chase
+                  const distance = Math.sqrt(
+                    Math.pow(ghost.position.x - newState.pacmon.x, 2) +
+                    Math.pow(ghost.position.y - newState.pacmon.y, 2)
+                  )
+                  if (distance < 8) {
+                    targetTile = ghost.scatterTarget
+                  } else {
+                    targetTile = newState.pacmon
+                  }
+                  break
+                default:
+                  targetTile = newState.pacmon
+              }
+            }
+
+            // Ghost movement logic (shortest path to target, avoiding walls)
+            const possibleDirections = [
+              { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
+            ]
+            let bestDirection = ghost.direction
+            let minDistance = Infinity
+
+            possibleDirections.forEach(dir => {
+              const nextPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
+              if (nextPos.x >= 0 && nextPos.x < GRID_SIZE && nextPos.y >= 0 && nextPos.y < GRID_SIZE && MAZE[nextPos.y][nextPos.x] !== 1) {
+                const distance = Math.sqrt(
+                  Math.pow(nextPos.x - targetTile.x, 2) +
+                  Math.pow(nextPos.y - targetTile.y, 2)
+                )
+                if (distance < minDistance) {
+                  minDistance = distance
+                  bestDirection = dir
                 }
               }
-              return { ...ghost, vulnerable: newState.powerMode }
-            }
-            
-            return { ...ghost, position: newPos, vulnerable: newState.powerMode }
+            })
+
+            return { ...ghost, direction: bestDirection, position: { x: ghost.position.x + bestDirection.x, y: ghost.position.y + bestDirection.y }, vulnerable: newState.powerMode }
           })
           
           // Check ghost collisions
@@ -159,12 +268,14 @@ export default function PacmonGame() {
               if (ghost.vulnerable) {
                 // Eat ghost
                 newState.score += 200
-                ghost.position = { x: 9, y: 9 } // Reset to center
+                ghost.eaten = true
                 ghost.vulnerable = false
-              } else {
+              } else if (!ghost.eaten) {
                 // Lose life
                 newState.lives -= 1
                 newState.pacmon = { x: 9, y: 15 } // Reset Pacmon position
+                newState.pacmonDirection = { x: 0, y: 0 } // Stop Pacmon
+                newState.ghosts = newState.ghosts.map(g => ({ ...g, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, vulnerable: false, eaten: false })) // Reset ghosts
                 if (newState.lives <= 0) {
                   newState.gameStatus = 'gameOver'
                 }
@@ -199,60 +310,39 @@ export default function PacmonGame() {
     if (gameState.gameStatus !== 'playing') return
 
     const { key } = event
-    let newPosition = { ...gameState.pacmon }
+    let newDirection = { x: 0, y: 0 }
 
     switch (key) {
       case 'ArrowUp':
       case 'w':
       case 'W':
-        newPosition.y = Math.max(0, newPosition.y - 1)
+        newDirection.y = -1
         break
       case 'ArrowDown':
       case 's':
       case 'S':
-        newPosition.y = Math.min(GRID_SIZE - 1, newPosition.y + 1)
+        newDirection.y = 1
         break
       case 'ArrowLeft':
       case 'a':
       case 'A':
-        newPosition.x = Math.max(0, newPosition.x - 1)
+        newDirection.x = -1
         break
       case 'ArrowRight':
       case 'd':
       case 'D':
-        newPosition.x = Math.min(GRID_SIZE - 1, newPosition.x + 1)
+        newDirection.x = 1
         break
       default:
         return
     }
 
-    // Check if new position is valid (not a wall)
-    if (MAZE[newPosition.y][newPosition.x] !== 1) {
-      setGameState(prev => {
-        let newState = { ...prev, pacmon: newPosition }
-        
-        // Check pellet collection
-        const pelletIndex = newState.pellets.findIndex(
-          pellet => pellet.x === newPosition.x && pellet.y === newPosition.y
-        )
-        if (pelletIndex !== -1) {
-          newState.pellets = newState.pellets.filter((_, index) => index !== pelletIndex)
-          newState.score += 10
-        }
-        
-        // Check power pellet collection
-        const powerPelletIndex = newState.powerPellets.findIndex(
-          pellet => pellet.x === newPosition.x && pellet.y === newPosition.y
-        )
-        if (powerPelletIndex !== -1) {
-          newState.powerPellets = newState.powerPellets.filter((_, index) => index !== powerPelletIndex)
-          newState.score += 50
-          newState.powerMode = true
-          newState.powerModeTimer = 30 // 6 seconds at 200ms intervals
-        }
-        
-        return newState
-      })
+    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
+    const nextX = gameState.pacmon.x + newDirection.x
+    const nextY = gameState.pacmon.y + newDirection.y
+
+    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && MAZE[nextY][nextX] !== 1) {
+      setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
     }
   }, [gameState.pacmon, gameState.gameStatus])
 
@@ -366,10 +456,12 @@ export default function PacmonGame() {
   const restartGame = () => {
     setGameState({
       pacmon: { x: 9, y: 15 },
+      pacmonDirection: { x: 0, y: 0 }, // Reset Pacmon direction
       ghosts: [
-        { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BLUE, vulnerable: false },
-        { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false },
-        { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false }
+        { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
+        { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
+        { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_BLUE, vulnerable: false, type: 'inky', scatterTarget: { x: 18, y: 18 }, eaten: false },
+        { id: 4, position: { x: 10, y: 10 }, direction: { x: 0, y: -1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false, type: 'clyde', scatterTarget: { x: 1, y: 18 }, eaten: false }
       ],
       pellets: [],
       powerPellets: [],
