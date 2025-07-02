@@ -3,6 +3,7 @@
 import PacmonGame from '@/components/PacmonGame'
 import { useFrame } from '@/components/farcaster-provider'
 import { SafeAreaContainer } from '@/components/safe-area-container'
+import { WalletActions } from '@/components/Home/WalletActions'; // Import WalletActions
 
 export default function Home() {
   const { context, isLoading, isSDKLoaded } = useFrame()
@@ -32,6 +33,8 @@ export default function Home() {
   return (
     <SafeAreaContainer insets={context?.client.safeAreaInsets}>
       <PacmonGame />
+      {/* Add the WalletActions component here */}
+      <WalletActions />
     </SafeAreaContainer>
   )
 }
