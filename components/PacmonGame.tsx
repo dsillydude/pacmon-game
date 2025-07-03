@@ -13,6 +13,68 @@ import {
   useSwitchChain,
 } from 'wagmi'
 
+// Leaderboard management functions
+const getLeaderboard = () => {
+  try {
+    const stored = localStorage.getItem('pacmon_leaderboard')
+    return stored ? JSON.parse(stored) : []
+  } catch (error) {
+    console.error('Error loading leaderboard:', error)
+    return []
+  }
+}
+
+const updateLeaderboard = (walletAddress: string, score: number) => {
+  try {
+    const leaderboard = getLeaderboard()
+    const shortWallet = walletAddress.slice(0, 4) + '...' + walletAddress.slice(-4)
+    
+    // Check if wallet already exists
+    const existingIndex = leaderboard.findIndex((entry: any) => entry.wallet === shortWallet)
+    
+    if (existingIndex >= 0) {
+      // Update if new score is higher
+      if (score > leaderboard[existingIndex].score) {
+        leaderboard[existingIndex].score = score
+        leaderboard[existingIndex].date = new Date().toISOString()
+      }
+    } else {
+      // Add new entry
+      leaderboard.push({
+        wallet: shortWallet,
+        score,
+        date: new Date().toISOString()
+      })
+    }
+    
+    // Sort by score (descending) and keep top 10
+    leaderboard.sort((a: any, b: any) => b.score - a.score)
+    const topLeaderboard = leaderboard.slice(0, 10)
+    
+    localStorage.setItem('pacmon_leaderboard', JSON.stringify(topLeaderboard))
+    return topLeaderboard
+  } catch (error) {
+    console.error('Error updating leaderboard:', error)
+    return []
+  }
+}
+
+const getTodayHighScore = () => {
+  try {
+    const leaderboard = getLeaderboard()
+    const today = new Date().toDateString()
+    
+    const todayScores = leaderboard.filter((entry: any) => 
+      new Date(entry.date).toDateString() === today
+    )
+    
+    return todayScores.length > 0 ? Math.max(...todayScores.map((entry: any) => entry.score)) : 0
+  } catch (error) {
+    console.error('Error getting today high score:', error)
+    return 0
+  }
+}
+
 // Monad color palette
 const COLORS = {
   MONAD_PURPLE: '#836EF9',
@@ -23,9 +85,9 @@ const COLORS = {
   WHITE: '#FFFFFF'
 }
 
-// Game constants
+// Game constants - Fixed sizing to prevent stretching
 const GRID_SIZE = 20
-const CELL_SIZE = 20
+const CELL_SIZE = 18  // Reduced from 20 to prevent stretching
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE
 const GAME_HEIGHT = GRID_SIZE * CELL_SIZE
 
@@ -58,8 +120,7 @@ interface GameState {
   powerMode: boolean
   powerModeTimer: number
   highScore: number
-  totalPlayers: number
-  totalPlays: number
+  leaderboard: Array<{wallet: string, score: number, date: string}>
 }
 
 // Simple maze layout (1 = wall, 0 = empty, 2 = pellet, 3 = power pellet)
@@ -87,7 +148,7 @@ const MAZE = [
 ]
 
 export default function PacmonGame() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const canvasRef = useRef(null)
   const { isEthProviderAvailable } = useFrame()
   const { isConnected, address, chainId } = useAccount()
   const { disconnect } = useDisconnect()
@@ -95,7 +156,7 @@ export default function PacmonGame() {
   const { switchChain } = useSwitchChain()
   const { connect } = useConnect()
   
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState({
     pacmon: { x: 9, y: 15 },
     pacmonDirection: { x: 0, y: 0 },
     ghosts: [
@@ -112,23 +173,20 @@ export default function PacmonGame() {
     powerMode: false,
     powerModeTimer: 0,
     highScore: 0,
-    totalPlayers: 0,
-    totalPlays: 0
+    leaderboard: []
   })
 
-  // Load game statistics from localStorage on component mount
+  // Load leaderboard and high score on component mount
   useEffect(() => {
     const loadGameStats = () => {
       try {
-        const savedHighScore = localStorage.getItem('pacmon_high_score')
-        const savedTotalPlayers = localStorage.getItem('pacmon_total_players')
-        const savedTotalPlays = localStorage.getItem('pacmon_total_plays')
+        const loadedLeaderboard = getLeaderboard()
+        const todayHigh = getTodayHighScore()
         
         setGameState(prev => ({
           ...prev,
-          highScore: savedHighScore ? parseInt(savedHighScore) : 0,
-          totalPlayers: savedTotalPlayers ? parseInt(savedTotalPlayers) : 0,
-          totalPlays: savedTotalPlays ? parseInt(savedTotalPlays) : 0
+          leaderboard: loadedLeaderboard,
+          highScore: todayHigh
         }))
       } catch (error) {
         console.error('Error loading game stats:', error)
@@ -137,22 +195,6 @@ export default function PacmonGame() {
     
     loadGameStats()
   }, [])
-
-  // Save game statistics to localStorage
-  const saveGameStats = (newHighScore: number, newTotalPlays: number) => {
-    try {
-      localStorage.setItem('pacmon_high_score', newHighScore.toString())
-      localStorage.setItem('pacmon_total_plays', newTotalPlays.toString())
-      
-      // Increment total players if this is a new player (simplified logic)
-      const currentPlayers = parseInt(localStorage.getItem('pacmon_total_players') || '0')
-      if (newTotalPlays === 1) {
-        localStorage.setItem('pacmon_total_players', (currentPlayers + 1).toString())
-      }
-    } catch (error) {
-      console.error('Error saving game stats:', error)
-    }
-  }
 
   // Initialize pellets and power pellets from maze
   useEffect(() => {
@@ -340,8 +382,12 @@ export default function PacmonGame() {
                 newState.ghosts = newState.ghosts.map(g => ({ ...g, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, vulnerable: false, eaten: false })) // Reset ghosts
                 if (newState.lives <= 0) {
                   newState.gameStatus = 'gameOver'
-                  // Trigger achievement reward
-                  handleAchievementReward(newState.score)
+                  // Update leaderboard
+                  if (address) {
+                    const updatedLeaderboard = updateLeaderboard(address, newState.score)
+                    newState.leaderboard = updatedLeaderboard
+                    newState.highScore = getTodayHighScore()
+                  }
                 }
               }
             }
@@ -359,8 +405,6 @@ export default function PacmonGame() {
           // Check level complete
           if (newState.pellets.length === 0 && newState.powerPellets.length === 0) {
             newState.gameStatus = 'levelComplete'
-            // Trigger achievement reward for level completion
-            handleAchievementReward(newState.score + 500) // Bonus for completing level
           }
           
           return newState
@@ -369,7 +413,7 @@ export default function PacmonGame() {
     }, 200)
 
     return () => clearInterval(gameLoop)
-  }, [gameState.gameStatus])
+  }, [gameState.gameStatus, address])
 
   // Handle keyboard input
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
@@ -544,45 +588,19 @@ export default function PacmonGame() {
     }
   }
 
-  const handleAchievementReward = async (score: number) => {
-    if (!isConnected || chainId !== monadTestnet.id) return
-
-    // Send achievement reward transaction
-    try {
-      const rewardAmount = Math.floor(score / 1000) * 0.00001 // 0.00001 MON per 1000 points
-      if (rewardAmount > 0) {
-        await sendTransaction({
-          to: address!, // Send reward to player
-          value: parseEther(rewardAmount.toString()),
-        })
-      }
-    } catch (error) {
-      console.error('Achievement reward failed:', error)
-    }
-  }
-
   const startGame = () => {
-    // Re-enable wallet integration for production
     if (!isConnected) {
       handlePayment()
     } else {
       handlePayment()
     }
-    
-    // Remove test mode - comment out below for testing
-    // setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
   }
 
   const restartGame = () => {
-    const newHighScore = gameState.highScore > gameState.score ? gameState.highScore : gameState.score
-    const newTotalPlays = gameState.totalPlays + 1
-    
-    // Save updated statistics
-    saveGameStats(newHighScore, newTotalPlays)
-    
-    setGameState({
+    setGameState(prev => ({
+      ...prev,
       pacmon: { x: 9, y: 15 },
-      pacmonDirection: { x: 0, y: 0 }, // Reset Pacmon direction
+      pacmonDirection: { x: 0, y: 0 },
       ghosts: [
         { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
         { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
@@ -595,11 +613,8 @@ export default function PacmonGame() {
       lives: 3,
       gameStatus: 'pregame',
       powerMode: false,
-      powerModeTimer: 0,
-      highScore: newHighScore,
-      totalPlayers: gameState.totalPlayers,
-      totalPlays: newTotalPlays
-    })
+      powerModeTimer: 0
+    }))
     
     // Reinitialize pellets
     const pellets: Position[] = []
@@ -632,71 +647,78 @@ export default function PacmonGame() {
   }, [gameState.pacmon, gameState.gameStatus])
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+    
       {gameState.gameStatus === 'pregame' && (
-        <div className="flex flex-col items-center justify-center flex-1 px-4 space-y-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
+        
+          
+            
               PACMON
-            </h1>
-            <div className="space-y-2 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+            
+            
+              
                 Today's High Score: {gameState.highScore.toLocaleString()}
-              </div>
-              <div className="text-base md:text-lg" style={{ color: COLORS.MONAD_BERRY }}>
-                Total Players: {gameState.totalPlayers.toLocaleString()}
-              </div>
-              <div className="text-base md:text-lg" style={{ color: COLORS.MONAD_BLUE }}>
-                Total Plays: {gameState.totalPlays.toLocaleString()}
-              </div>
-            </div>
-          </div>
+              
+              
+              {/* Leaderboard */}
+              
+                
+                  🏆 Top Players
+                
+                
+                  {gameState.leaderboard.slice(0, 3).length > 0 ? (
+                    
+                      {gameState.leaderboard.slice(0, 3).map((entry, index) => (
+                        
+                          
+                            
+                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                            
+                            
+                              {entry.wallet}
+                            
+                          
+                          
+                            {entry.score.toLocaleString()}
+                          
+                        
+                      ))}
+                    
+                  ) : (
+                    
+                      No scores yet. Be the first!
+                    
+                  )}
+                
+              
+            
+          
 
           {/* Wallet Connection Status */}
           {isConnected && (
-            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-              <div className="text-center space-y-2">
-                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+            
+              
+                
                   Wallet Connected
-                </div>
-                <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                
+                
                   {address?.slice(0, 6)}...{address?.slice(-4)}
-                </div>
-                <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                
+                
                   Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
-                </div>
-              </div>
-            </div>
+                
+              
+            
           )}
 
-          <div className="w-full max-w-md space-y-4">
-            <button
-              onClick={startGame}
-              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: COLORS.MONAD_BERRY, 
-                color: COLORS.WHITE 
-              }}
-            >
+          
+            
               {!isConnected ? 'Connect Wallet & Pay 0.0001 MON' : 
                chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
                'Pay 0.0001 MON for +1 Play'}
-            </button>
             
-            <button
-              onClick={() => {/* Rankings functionality will be added later */}}
-              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: COLORS.MONAD_BLUE, 
-                color: COLORS.WHITE 
-              }}
-            >
-              Rankings
-            </button>
 
             {isConnected && (
-              <button
-                onClick={() => disconnect()}
+               disconnect()}
                 className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
                 style={{ 
                   backgroundColor: 'transparent', 
@@ -705,155 +727,135 @@ export default function PacmonGame() {
                 }}
               >
                 Disconnect Wallet
-              </button>
+              
             )}
-          </div>
+          
 
-          <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-            <p>Swipe/Mouse to move, tap/click to play</p>
-            <p className="mt-1">Eat all pellets while avoiding ghosts!</p>
-            <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
+          
+            Swipe/Mouse to move, tap/click to play
+            Eat all pellets while avoiding ghosts!
+            
               Earn MON rewards for high scores and achievements!
-            </p>
-          </div>
-        </div>
+            
+          
+        
       )}
 
       {gameState.gameStatus !== 'pregame' && (
-        <div className="flex flex-col h-screen">
-          <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-            <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
+        
+          {/* Game Header */}
+          
+            
               PACMON
-            </h1>
-            <div className="flex justify-center space-x-4 text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <div>Score: {gameState.score}</div>
-              <div>Lives: {gameState.lives}</div>
+            
+            
+              Score: {gameState.score}
+              Lives: {gameState.lives}
               {gameState.powerMode && (
-                <div style={{ color: COLORS.MONAD_PURPLE }}>
+                
                   Power: {Math.ceil(gameState.powerModeTimer / 5)}s
-                </div>
+                
               )}
-            </div>
-          </div>
+            
+          
 
-          <div className="flex-1 relative">
-            <canvas
-              ref={canvasRef}
-              width={GAME_WIDTH}
-              height={GAME_HEIGHT}
-              className="w-full h-full"
-              style={{ backgroundColor: COLORS.MONAD_BLACK }}
-            />
+          {/* Game Canvas Container - Fixed sizing */}
+          
             
-            {/* Mobile Controls Overlay */}
-            <div className="absolute bottom-4 right-4 flex flex-col items-center space-y-3 md:hidden">
-              <div className="flex flex-col items-center space-y-3">
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
-                  onClick={() => handleDirectionPress({ x: 0, y: -1 })}
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE,
-                    opacity: 0.9
-                  }}
-                >
-                  ↑
-                </button>
-                <div className="flex space-x-4">
-                  <button
-                    onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
-                    onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE,
-                      borderColor: COLORS.MONAD_OFF_WHITE,
-                      opacity: 0.9
-                    }}
-                  >
-                    ←
-                  </button>
-                  <button
-                    onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
-                    onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE,
-                      borderColor: COLORS.MONAD_OFF_WHITE,
-                      opacity: 0.9
-                    }}
-                  >
-                    →
-                  </button>
-                </div>
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
-                  onClick={() => handleDirectionPress({ x: 0, y: 1 })}
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE,
-                    opacity: 0.9
-                  }}
-                >
-                  ↓
-                </button>
-              </div>
-            </div>
+              
             
-            {gameState.gameStatus === 'gameOver' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <div className="text-center">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_BERRY }}>
-                    Game Over
-                  </h2>
-                  <p className="text-lg md:text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    Final Score: {gameState.score}
-                  </p>
-                  <button
-                    onClick={restartGame}
-                    className="px-4 md:px-6 py-2 md:py-3 text-base md:text-lg font-bold rounded"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE 
-                    }}
-                  >
-                    Play Again
-                  </button>
-                </div>
-              </div>
-            )}
             
-            {gameState.gameStatus === 'levelComplete' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <div className="text-center">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_PURPLE }}>
-                    Level Complete!
-                  </h2>
-                  <p className="text-lg md:text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    Score: {gameState.score}
-                  </p>
-                  <button
-                    onClick={restartGame}
-                    className="px-4 md:px-6 py-2 md:py-3 text-base md:text-lg font-bold rounded"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE 
-                    }}
-                  >
-                    Next Level
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+            {/* Mobile Controls - Larger buttons with proper spacing */}
+            
+              
+               handleDirectionPress({ x: 0, y: -1 })}
+                onClick={() => handleDirectionPress({ x: 0, y: -1 })}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
+                style={{ 
+                  backgroundColor: COLORS.MONAD_PURPLE, 
+                  color: COLORS.WHITE,
+                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+                }}
+              >
+                ↑
+              
+              
+              
+               handleDirectionPress({ x: -1, y: 0 })}
+                onClick={() => handleDirectionPress({ x: -1, y: 0 })}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
+                style={{ 
+                  backgroundColor: COLORS.MONAD_PURPLE, 
+                  color: COLORS.WHITE,
+                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+                }}
+              >
+                ←
+              
+              
+               handleDirectionPress({ x: 1, y: 0 })}
+                onClick={() => handleDirectionPress({ x: 1, y: 0 })}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
+                style={{ 
+                  backgroundColor: COLORS.MONAD_PURPLE, 
+                  color: COLORS.WHITE,
+                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+                }}
+              >
+                →
+              
+              
+              
+               handleDirectionPress({ x: 0, y: 1 })}
+                onClick={() => handleDirectionPress({ x: 0, y: 1 })}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
+                style={{ 
+                  backgroundColor: COLORS.MONAD_PURPLE, 
+                  color: COLORS.WHITE,
+                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+                }}
+              >
+                ↓
+              
+              
+            
+          
+            
+          {/* Game Over Screen */}
+          {gameState.gameStatus === 'gameOver' && (
+            
+              
+                
+                  Game Over
+                
+                
+                  Final Score: {gameState.score}
+                
+                
+                  Play Again
+                
+              
+            
+          )}
+          
+          {/* Level Complete Screen */}
+          {gameState.gameStatus === 'levelComplete' && (
+            
+              
+                
+                  Level Complete!
+                
+                
+                  Score: {gameState.score}
+                
+                
+                  Next Level
+                
+              
+            
+          )}
+        
       )}
-    </div>
+    
   )
 }
-
