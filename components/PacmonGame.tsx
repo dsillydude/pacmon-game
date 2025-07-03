@@ -75,6 +75,23 @@ const getTodayHighScore = () => {
   }
 }
 
+const getTodayTopScores = () => {
+  try {
+    const leaderboard = getLeaderboard()
+    const today = new Date().toDateString()
+    
+    const todayScores = leaderboard.filter((entry: any) => 
+      new Date(entry.date).toDateString() === today
+    )
+    
+    // Sort by score and return top 3
+    return todayScores.sort((a: any, b: any) => b.score - a.score).slice(0, 3)
+  } catch (error) {
+    console.error('Error getting today top scores:', error)
+    return []
+  }
+}
+
 // Monad color palette
 const COLORS = {
   MONAD_PURPLE: '#836EF9',
@@ -121,6 +138,7 @@ interface GameState {
   powerModeTimer: number
   highScore: number
   leaderboard: Array<{wallet: string, score: number, date: string}>
+  todayTopScores: Array<{wallet: string, score: number, date: string}>
 }
 
 // Simple maze layout (1 = wall, 0 = empty, 2 = pellet, 3 = power pellet)
@@ -173,7 +191,8 @@ export default function PacmonGame() {
     powerMode: false,
     powerModeTimer: 0,
     highScore: 0,
-    leaderboard: []
+    leaderboard: [],
+    todayTopScores: []
   })
 
   // Load leaderboard and high score on component mount
@@ -182,11 +201,13 @@ export default function PacmonGame() {
       try {
         const loadedLeaderboard = getLeaderboard()
         const todayHigh = getTodayHighScore()
+        const todayTop = getTodayTopScores()
         
         setGameState(prev => ({
           ...prev,
           leaderboard: loadedLeaderboard,
-          highScore: todayHigh
+          highScore: todayHigh,
+          todayTopScores: todayTop
         }))
       } catch (error) {
         console.error('Error loading game stats:', error)
@@ -387,6 +408,7 @@ export default function PacmonGame() {
                     const updatedLeaderboard = updateLeaderboard(address, newState.score)
                     newState.leaderboard = updatedLeaderboard
                     newState.highScore = getTodayHighScore()
+                    newState.todayTopScores = getTodayTopScores()
                   }
                 }
               }
@@ -647,78 +669,90 @@ export default function PacmonGame() {
   }, [gameState.pacmon, gameState.gameStatus])
 
   return (
-    
+    <div className="flex flex-col h-screen" style={{ backgroundColor: COLORS.MONAD_BLACK, color: COLORS.MONAD_OFF_WHITE }}>
       {gameState.gameStatus === 'pregame' && (
-        
-          
-            
+        <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
               PACMON
+            </h1>
             
-            
-              
+            <div className="space-y-3">
+              <p className="text-lg font-semibold">
                 Today's High Score: {gameState.highScore.toLocaleString()}
+              </p>
               
-              
-              {/* Leaderboard */}
-              
-                
-                  🏆 Top Players
-                
-                
-                  {gameState.leaderboard.slice(0, 3).length > 0 ? (
-                    
-                      {gameState.leaderboard.slice(0, 3).map((entry, index) => (
-                        
-                          
-                            
+              {/* Today's Top 3 */}
+              <div className="bg-opacity-20 rounded-lg p-4" style={{ backgroundColor: COLORS.MONAD_PURPLE }}>
+                <h3 className="text-lg font-bold mb-3" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  🏆 Today's Top Players
+                </h3>
+                <div className="space-y-2">
+                  {gameState.todayTopScores.length > 0 ? (
+                    <div className="space-y-2">
+                      {gameState.todayTopScores.map((entry, index) => (
+                        <div key={index} className="flex justify-between items-center">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">
                               {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                            
-                            
-                              {entry.wallet}
-                            
-                          
-                          
+                            </span>
+                            <span className="font-mono text-sm">
+                              {entry.wallet.slice(0, 4)}...{entry.wallet.slice(-4)}
+                            </span>
+                          </div>
+                          <span className="font-bold">
                             {entry.score.toLocaleString()}
-                          
-                        
+                          </span>
+                        </div>
                       ))}
-                    
+                    </div>
                   ) : (
-                    
+                    <p className="text-center text-sm opacity-75">
                       No scores yet. Be the first!
-                    
+                    </p>
                   )}
-                
-              
-            
-          
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Wallet Connection Status */}
           {isConnected && (
-            
-              
-                
+            <div className="text-center space-y-2">
+              <div className="bg-opacity-20 rounded-lg p-3" style={{ backgroundColor: COLORS.MONAD_BLUE }}>
+                <p className="text-sm font-semibold">
                   Wallet Connected
-                
-                
+                </p>
+                <p className="text-xs font-mono">
                   {address?.slice(0, 6)}...{address?.slice(-4)}
-                
-                
+                </p>
+                <p className="text-xs">
                   Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
-                
-              
-            
+                </p>
+              </div>
+            </div>
           )}
 
-          
-            
+          <div className="space-y-3 w-full max-w-xs">
+            <button
+              onTouchStart={startGame}
+              onClick={startGame}
+              className="w-full py-3 px-6 text-lg font-bold rounded-lg transition-all duration-200 active:scale-95"
+              style={{ 
+                backgroundColor: COLORS.MONAD_PURPLE, 
+                color: COLORS.WHITE,
+                border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+              }}
+            >
               {!isConnected ? 'Connect Wallet & Pay 0.0001 MON' : 
                chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
                'Pay 0.0001 MON for +1 Play'}
-            
+            </button>
 
             {isConnected && (
-               disconnect()}
+              <button
+                onTouchStart={() => disconnect()}
+                onClick={() => disconnect()}
                 className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
                 style={{ 
                   backgroundColor: 'transparent', 
@@ -727,135 +761,150 @@ export default function PacmonGame() {
                 }}
               >
                 Disconnect Wallet
-              
+              </button>
             )}
-          
+          </div>
 
-          
-            Swipe/Mouse to move, tap/click to play
-            Eat all pellets while avoiding ghosts!
-            
+          <div className="text-center text-sm space-y-1 opacity-75">
+            <p>Swipe/Mouse to move, tap/click to play</p>
+            <p>Eat all pellets while avoiding ghosts!</p>
+            <p className="text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
               Earn MON rewards for high scores and achievements!
-            
-          
-        
+            </p>
+          </div>
+        </div>
       )}
 
       {gameState.gameStatus !== 'pregame' && (
-        
+        <div className="flex flex-col h-screen">
           {/* Game Header */}
-          
-            
+          <div className="flex justify-between items-center p-4 bg-opacity-20" style={{ backgroundColor: COLORS.MONAD_BLUE }}>
+            <h1 className="text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
               PACMON
-            
-            
-              Score: {gameState.score}
-              Lives: {gameState.lives}
+            </h1>
+            <div className="text-right text-sm">
+              <div>Score: {gameState.score}</div>
+              <div>Lives: {gameState.lives}</div>
               {gameState.powerMode && (
-                
+                <div style={{ color: COLORS.MONAD_PURPLE }}>
                   Power: {Math.ceil(gameState.powerModeTimer / 5)}s
-                
+                </div>
               )}
-            
-          
+            </div>
+          </div>
 
-          {/* Game Canvas Container - Fixed sizing */}
-          
+          {/* Game Canvas Container - Fixed positioning */}
+          <div className="flex-1 flex flex-col items-center justify-start pt-4">
+            <div className="relative">
+              <canvas
+                ref={canvasRef}
+                width={GAME_WIDTH}
+                height={GAME_HEIGHT}
+                className="border-2 rounded-lg"
+                style={{ borderColor: COLORS.MONAD_PURPLE }}
+              />
+            </div>
+          </div>
             
-              
-            
-            
-            {/* Mobile Controls - Larger buttons with proper spacing */}
-            
-              
-               handleDirectionPress({ x: 0, y: -1 })}
+          {/* Mobile Controls - Fixed at bottom with larger buttons */}
+          <div className="p-6 bg-opacity-20" style={{ backgroundColor: COLORS.MONAD_BLUE }}>
+            <div className="flex flex-col items-center space-y-4">
+              <button
+                onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
                 onClick={() => handleDirectionPress({ x: 0, y: -1 })}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
+                className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 active:scale-95"
                 style={{ 
                   backgroundColor: COLORS.MONAD_PURPLE, 
                   color: COLORS.WHITE,
-                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+                  border: `3px solid ${COLORS.MONAD_OFF_WHITE}`
                 }}
               >
                 ↑
-              
-              
-              
-               handleDirectionPress({ x: -1, y: 0 })}
-                onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_PURPLE, 
-                  color: COLORS.WHITE,
-                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
-                }}
-              >
-                ←
-              
-              
-               handleDirectionPress({ x: 1, y: 0 })}
-                onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_PURPLE, 
-                  color: COLORS.WHITE,
-                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
-                }}
-              >
-                →
-              
-              
-              
-               handleDirectionPress({ x: 0, y: 1 })}
+              </button>
+              <div className="flex space-x-8">
+                <button
+                  onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
+                  onClick={() => handleDirectionPress({ x: -1, y: 0 })}
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 active:scale-95"
+                  style={{ 
+                    backgroundColor: COLORS.MONAD_PURPLE, 
+                    color: COLORS.WHITE,
+                    border: `3px solid ${COLORS.MONAD_OFF_WHITE}`
+                  }}
+                >
+                  ←
+                </button>
+                <button
+                  onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
+                  onClick={() => handleDirectionPress({ x: 1, y: 0 })}
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 active:scale-95"
+                  style={{ 
+                    backgroundColor: COLORS.MONAD_PURPLE, 
+                    color: COLORS.WHITE,
+                    border: `3px solid ${COLORS.MONAD_OFF_WHITE}`
+                  }}
+                >
+                  →
+                </button>
+              </div>
+              <button
+                onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
                 onClick={() => handleDirectionPress({ x: 0, y: 1 })}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 active:scale-95"
+                className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 active:scale-95"
                 style={{ 
                   backgroundColor: COLORS.MONAD_PURPLE, 
                   color: COLORS.WHITE,
-                  border: `2px solid ${COLORS.MONAD_OFF_WHITE}`
+                  border: `3px solid ${COLORS.MONAD_OFF_WHITE}`
                 }}
               >
                 ↓
-              
-              
-            
-          
+              </button>
+            </div>
+          </div>
             
           {/* Game Over Screen */}
           {gameState.gameStatus === 'gameOver' && (
-            
-              
-                
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+              <div className="text-center space-y-4 p-6 rounded-lg" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+                <h2 className="text-3xl font-bold" style={{ color: COLORS.MONAD_BERRY }}>
                   Game Over
-                
-                
+                </h2>
+                <p className="text-xl">
                   Final Score: {gameState.score}
-                
-                
+                </p>
+                <button
+                  onClick={restartGame}
+                  className="py-3 px-6 text-lg font-bold rounded-lg transition-all duration-200"
+                  style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE }}
+                >
                   Play Again
-                
-              
-            
+                </button>
+              </div>
+            </div>
           )}
           
           {/* Level Complete Screen */}
           {gameState.gameStatus === 'levelComplete' && (
-            
-              
-                
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+              <div className="text-center space-y-4 p-6 rounded-lg" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+                <h2 className="text-3xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
                   Level Complete!
-                
-                
+                </h2>
+                <p className="text-xl">
                   Score: {gameState.score}
-                
-                
+                </p>
+                <button
+                  onClick={restartGame}
+                  className="py-3 px-6 text-lg font-bold rounded-lg transition-all duration-200"
+                  style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE }}
+                >
                   Next Level
-                
-              
-            
+                </button>
+              </div>
+            </div>
           )}
-        
+        </div>
       )}
-    
+    </div>
   )
 }
