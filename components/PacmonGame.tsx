@@ -653,101 +653,101 @@ export default function PacmonGame() {
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-      {gameState.gameStatus === 'pregame' && (
-        <div className="flex flex-col items-center justify-center flex-1 px-4 space-y-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
-              PACMON
-            </h1>
-            
-            {/* Top 3 Scores */}
-            <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                Today's High Scores
-              </div>
+      {gameState.gameStatus === 'pregame' ? (
+        <>
+          <div className="flex flex-col items-center justify-center flex-1 px-4 space-y-6">
+            <div className="text-center space-y-4">
+              <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
+                PACMON
+              </h1>
               
-              {gameState.topScores.length > 0 ? (
-                <div className="space-y-2">
-                  {gameState.topScores.map((entry, index) => (
-                    <div key={index} className="flex justify-between items-center px-4 py-2 rounded-lg" style={{ backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-                      <span className="font-bold" style={{ color: index === 0 ? COLORS.MONAD_BERRY : index === 1 ? COLORS.MONAD_BLUE : COLORS.MONAD_PURPLE }}>
-                        {index + 1}{index === 0 ? 'st' : index === 1 ? 'nd' : 'rd'}
-                      </span>
-                      <span className="font-mono text-sm">
-                        {entry.score.toLocaleString()}
-                      </span>
-                      <span className="font-mono text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                        ...{entry.wallet.slice(-4)}
-                      </span>
-                    </div>
-                  ))}
+              {/* Top 3 Scores */}
+              <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  Today's High Scores
                 </div>
-              ) : (
-                <div className="text-base" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  No scores yet - be the first!
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Wallet Connection Status */}
-          {isConnected && (
-            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-              <div className="text-center space-y-2">
-                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                  Wallet Connected
-                </div>
-                <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
-                </div>
-                <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
-                </div>
+                
+                {gameState.topScores.length > 0 ? (
+                  <div className="space-y-2">
+                    {gameState.topScores.map((entry, index) => (
+                      <div key={index} className="flex justify-between items-center px-4 py-2 rounded-lg" style={{ backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+                        <span className="font-bold" style={{ color: index === 0 ? COLORS.MONAD_BERRY : index === 1 ? COLORS.MONAD_BLUE : COLORS.MONAD_PURPLE }}>
+                          {index + 1}{index === 0 ? 'st' : index === 1 ? 'nd' : 'rd'}
+                        </span>
+                        <span className="font-mono text-sm">
+                          {entry.score.toLocaleString()}
+                        </span>
+                        <span className="font-mono text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                          ...{entry.wallet.slice(-4)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-base" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    No scores yet - be the first!
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          <div className="w-full max-w-md space-y-4">
-            <button
-              onClick={startGame}
-              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: COLORS.MONAD_BERRY, 
-                color: COLORS.WHITE 
-              }}
-            >
-              {!isConnected ? 'Connect Wallet & Pay 0.0001 MON' : 
-               chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
-               'Pay 0.0001 MON for +1 Play'}
-            </button>
-
+            {/* Wallet Connection Status */}
             {isConnected && (
+              <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+                <div className="text-center space-y-2">
+                  <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                    Wallet Connected
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    {address?.slice(0, 6)}...{address?.slice(-4)}
+                  </div>
+                  <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="w-full max-w-md space-y-4">
               <button
-                onClick={() => disconnect()}
-                className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
+                onClick={startGame}
+                className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
                 style={{ 
-                  backgroundColor: 'transparent', 
-                  color: COLORS.MONAD_OFF_WHITE,
-                  border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
+                  backgroundColor: COLORS.MONAD_BERRY, 
+                  color: COLORS.WHITE 
                 }}
               >
-                Disconnect Wallet
+                {!isConnected ? 'Connect Wallet & Pay 0.0001 MON' : 
+                 chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
+                 'Pay 0.0001 MON for +1 Play'}
               </button>
-            )}
-          </div>
 
-          <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-            <p>Swipe/Mouse to move, tap/click to play</p>
-            <p className="mt-1">Eat all pellets while avoiding ghosts!</p>
-            <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
-              Earn MON rewards for high scores and achievements!
-            </p>
-          </div>
-        </div>
-      )}
+              {isConnected && (
+                <button
+                  onClick={() => disconnect()}
+                  className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
+                  style={{ 
+                    backgroundColor: 'transparent', 
+                    color: COLORS.MONAD_OFF_WHITE,
+                    border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
+                  }}
+                >
+                  Disconnect Wallet
+                </button>
+              )}
+            </div>
 
-      {gameState.gameStatus !== 'pregame' && (
-        <div className="flex flex-col h-screen">
+            <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+              <p>Swipe/Mouse to move, tap/click to play</p>
+              <p className="mt-1">Eat all pellets while avoiding ghosts!</p>
+              <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
+                Earn MON rewards for high scores and achievements!
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
           <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
             <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
               PACMON
@@ -817,6 +817,7 @@ export default function PacmonGame() {
                   </button>
                 </div>
               </div>
+            )}
             </div>
             
             {/* Mobile Controls - Fixed at bottom */}
@@ -875,8 +876,7 @@ export default function PacmonGame() {
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
-}
