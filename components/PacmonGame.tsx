@@ -1,882 +1,318 @@
-'use client'
+import React, { useState, useEffect, useCallback } from 'react';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useFrame } from '@/components/farcaster-provider'
-import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
-import { parseEther } from 'viem'
-import { monadTestnet } from 'viem/chains'
-import {
-  useAccount,
-  useConnect,
-  useDisconnect,
-  useSendTransaction,
-  useSwitchChain,
-} from 'wagmi'
+const PacmonGame: React.FC = () => {
+  const GRID_SIZE = 20;
+  const CELL_SIZE = 20;
 
-// Monad color palette
-const COLORS = {
-  MONAD_PURPLE: '#836EF9',
-  MONAD_BLUE: '#200052',
-  MONAD_BERRY: '#A0055D',
-  MONAD_OFF_WHITE: '#FBFAF9',
-  MONAD_BLACK: '#0E100F',
-  WHITE: '#FFFFFF'
-}
+  // Game state
+  const [pacmonPos, setPacmonPos] = useState({ x: 1, y: 1 });
+  const [ghosts, setGhosts] = useState([
+    { x: 18, y: 1, color: 'red' },
+    { x: 18, y: 18, color: 'pink' },
+    { x: 1, y: 18, color: 'cyan' },
+  ]);
+  const [dots, setDots] = useState<Set<string>>(new Set());
+  const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [direction, setDirection] = useState({ x: 0, y: 0 });
 
-// Game constants
-const GRID_SIZE = 20
-const CELL_SIZE = 20
-const GAME_WIDTH = GRID_SIZE * CELL_SIZE
-const GAME_HEIGHT = GRID_SIZE * CELL_SIZE
-
-// Game entities
-interface Position {
-  x: number
-  y: number
-}
-
-interface Ghost {
-  id: number
-  position: Position
-  direction: Position
-  color: string
-  vulnerable: boolean
-  type: 'blinky' | 'pinky' | 'inky' | 'clyde'
-  scatterTarget: Position
-  eaten: boolean
-}
-
-interface GameState {
-  pacmon: Position
-  pacmonDirection: Position
-  ghosts: Ghost[]
-  pellets: Position[]
-  powerPellets: Position[]
-  score: number
-  lives: number
-  gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete'
-  powerMode: boolean
-  powerModeTimer: number
-  highScore: number
-  totalPlayers: number
-  totalPlays: number
-  topScores: Array<{ score: number; wallet: string }>
-}
-
-// Simple maze layout (1 = wall, 0 = empty, 2 = pellet, 3 = power pellet)
-const MAZE = [
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-  [1,3,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,3,1],
-  [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-  [1,2,1,1,1,2,1,2,1,1,1,1,2,1,2,1,1,1,2,1],
-  [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
-  [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
-  [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
-  [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
-  [2,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,2],
-  [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
-  [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
-  [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
-  [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-  [1,2,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,2,1],
-  [1,3,2,2,1,2,2,2,2,2,2,2,2,2,2,1,2,2,3,1],
-  [1,1,1,2,1,2,1,2,1,1,1,1,2,1,2,1,2,1,1,1],
-  [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
-  [1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-]
-
-export default function PacmonGame() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { isEthProviderAvailable } = useFrame()
-  const { isConnected, address, chainId } = useAccount()
-  const { disconnect } = useDisconnect()
-  const { data: hash, sendTransaction } = useSendTransaction()
-  const { switchChain } = useSwitchChain()
-  const { connect } = useConnect()
-  
-  const [gameState, setGameState] = useState<GameState>({
-    pacmon: { x: 9, y: 15 },
-    pacmonDirection: { x: 0, y: 0 },
-    ghosts: [
-      { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
-      { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
-      { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_BLUE, vulnerable: false, type: 'inky', scatterTarget: { x: 18, y: 18 }, eaten: false },
-      { id: 4, position: { x: 10, y: 10 }, direction: { x: 0, y: -1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false, type: 'clyde', scatterTarget: { x: 1, y: 18 }, eaten: false }
-    ],
-    pellets: [],
-    powerPellets: [],
-    score: 0,
-    lives: 3,
-    gameStatus: 'pregame',
-    powerMode: false,
-    powerModeTimer: 0,
-    highScore: 0,
-    totalPlayers: 0,
-    totalPlays: 0,
-    topScores: []
-  })
-
-  // Load game statistics from localStorage on component mount
+  // Initialize dots
   useEffect(() => {
-    const loadGameStats = () => {
-      try {
-        const savedHighScore = localStorage.getItem('pacmon_high_score')
-        const savedTotalPlayers = localStorage.getItem('pacmon_total_players')
-        const savedTotalPlays = localStorage.getItem('pacmon_total_plays')
-        const savedTopScores = localStorage.getItem('pacmon_top_scores')
-        
-        setGameState(prev => ({
-          ...prev,
-          highScore: savedHighScore ? parseInt(savedHighScore) : 0,
-          totalPlayers: savedTotalPlayers ? parseInt(savedTotalPlayers) : 0,
-          totalPlays: savedTotalPlays ? parseInt(savedTotalPlays) : 0,
-          topScores: savedTopScores ? JSON.parse(savedTopScores) : []
-        }))
-      } catch (error) {
-        console.error('Error loading game stats:', error)
-      }
-    }
-    
-    loadGameStats()
-  }, [])
-
-  // Save game statistics to localStorage
-  const saveGameStats = (newHighScore: number, newTotalPlays: number, finalScore?: number) => {
-    try {
-      localStorage.setItem('pacmon_high_score', newHighScore.toString())
-      localStorage.setItem('pacmon_total_plays', newTotalPlays.toString())
-      
-      // Update top scores if we have a final score and wallet address
-      if (finalScore && address) {
-        const currentTopScores = JSON.parse(localStorage.getItem('pacmon_top_scores') || '[]')
-        const newTopScores = [...currentTopScores, { score: finalScore, wallet: address }]
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3) // Keep only top 3
-        
-        localStorage.setItem('pacmon_top_scores', JSON.stringify(newTopScores))
-        
-        setGameState(prev => ({
-          ...prev,
-          topScores: newTopScores
-        }))
-      }
-      
-      // Increment total players if this is a new player (simplified logic)
-      const currentPlayers = parseInt(localStorage.getItem('pacmon_total_players') || '0')
-      if (newTotalPlays === 1) {
-        localStorage.setItem('pacmon_total_players', (currentPlayers + 1).toString())
-      }
-    } catch (error) {
-      console.error('Error saving game stats:', error)
-    }
-  }
-
-  // Initialize pellets and power pellets from maze
-  useEffect(() => {
-    const pellets: Position[] = []
-    const powerPellets: Position[] = []
-    
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        if (MAZE[y][x] === 2) {
-          pellets.push({ x, y })
-        } else if (MAZE[y][x] === 3) {
-          powerPellets.push({ x, y })
+    const initialDots = new Set<string>();
+    for (let x = 0; x < GRID_SIZE; x++) {
+      for (let y = 0; y < GRID_SIZE; y++) {
+        // Skip walls and initial positions
+        if (!isWall(x, y) && !(x === 1 && y === 1)) {
+          initialDots.add(`${x},${y}`);
         }
       }
     }
-    
-    setGameState(prev => ({ ...prev, pellets, powerPellets }))
-  }, [])
+    setDots(initialDots);
+  }, []);
+
+  // Simple wall detection (border walls)
+  const isWall = (x: number, y: number): boolean => {
+    return x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1;
+  };
+
+  // Check if position is valid (not a wall)
+  const isValidPosition = (x: number, y: number): boolean => {
+    return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && !isWall(x, y);
+  };
+
+  // Move Pacmon
+  const movePacmon = useCallback(() => {
+    if (gameOver || (direction.x === 0 && direction.y === 0)) return;
+
+    setPacmonPos(prev => {
+      const newX = prev.x + direction.x;
+      const newY = prev.y + direction.y;
+
+      if (isValidPosition(newX, newY)) {
+        return { x: newX, y: newY };
+      }
+      return prev;
+    });
+  }, [direction, gameOver]);
+
+  // Move ghosts randomly
+  const moveGhosts = useCallback(() => {
+    if (gameOver) return;
+
+    setGhosts(prev => prev.map(ghost => {
+      const directions = [
+        { x: 0, y: -1 }, // up
+        { x: 0, y: 1 },  // down
+        { x: -1, y: 0 }, // left
+        { x: 1, y: 0 }   // right
+      ];
+
+      const validMoves = directions.filter(dir => 
+        isValidPosition(ghost.x + dir.x, ghost.y + dir.y)
+      );
+
+      if (validMoves.length > 0) {
+        const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+        return {
+          ...ghost,
+          x: ghost.x + randomMove.x,
+          y: ghost.y + randomMove.y
+        };
+      }
+
+      return ghost;
+    }));
+  }, [gameOver]);
 
   // Game loop
   useEffect(() => {
-    const gameLoop = setInterval(() => {
-      if (gameState.gameStatus === 'playing') {
-        setGameState(prev => {
-          let newState = { ...prev }
-          
-          // Move Pacmon
-          let newPacmonPos = {
-            x: newState.pacmon.x + newState.pacmonDirection.x,
-            y: newState.pacmon.y + newState.pacmonDirection.y
-          }
+    const gameInterval = setInterval(() => {
+      movePacmon();
+      moveGhosts();
+    }, 200);
 
-          // Check for wall collision
-          if (newPacmonPos.x >= 0 && newPacmonPos.x < GRID_SIZE &&
-              newPacmonPos.y >= 0 && newPacmonPos.y < GRID_SIZE &&
-              MAZE[newPacmonPos.y][newPacmonPos.x] !== 1) {
-            newState.pacmon = newPacmonPos
+    return () => clearInterval(gameInterval);
+  }, [movePacmon, moveGhosts]);
 
-            // Check pellet collection
-            const pelletIndex = newState.pellets.findIndex(
-              pellet => pellet.x === newState.pacmon.x && pellet.y === newState.pacmon.y
-            )
-            if (pelletIndex !== -1) {
-              newState.pellets = newState.pellets.filter((_, index) => index !== pelletIndex)
-              newState.score += 10
-            }
+  // Check for collisions and dot collection
+  useEffect(() => {
+    // Check dot collection
+    const dotKey = `${pacmonPos.x},${pacmonPos.y}`;
+    if (dots.has(dotKey)) {
+      setDots(prev => {
+        const newDots = new Set(prev);
+        newDots.delete(dotKey);
+        return newDots;
+      });
+      setScore(prev => prev + 10);
+    }
 
-            // Check power pellet collection
-            const powerPelletIndex = newState.powerPellets.findIndex(
-              pellet => pellet.x === newState.pacmon.x && pellet.y === newState.pacmon.y
-            )
-            if (powerPelletIndex !== -1) {
-              newState.powerPellets = newState.powerPellets.filter((_, index) => index !== powerPelletIndex)
-              newState.score += 50
-              newState.powerMode = true
-              newState.powerModeTimer = 30 // 6 seconds at 200ms intervals
-            }
-          } else {
-            // Stop Pacmon if hits a wall
-            newState.pacmonDirection = { x: 0, y: 0 }
-          }
+    // Check ghost collisions
+    const collision = ghosts.some(ghost => 
+      ghost.x === pacmonPos.x && ghost.y === pacmonPos.y
+    );
 
-          // Move ghosts
-          newState.ghosts = newState.ghosts.map(ghost => {
-            if (ghost.eaten) {
-              // Eaten ghosts return to ghost house
-              if (ghost.position.x === 9 && ghost.position.y === 9) {
-                return { ...ghost, eaten: false, vulnerable: false }
-              }
-              // Simple path back to ghost house (can be improved)
-              const target = { x: 9, y: 9 }
-              const dx = target.x - ghost.position.x
-              const dy = target.y - ghost.position.y
-              let newDirection = { x: 0, y: 0 }
+    if (collision) {
+      setGameOver(true);
+    }
 
-              if (Math.abs(dx) > Math.abs(dy)) {
-                newDirection.x = dx > 0 ? 1 : -1
-              } else {
-                newDirection.y = dy > 0 ? 1 : -1
-              }
-              return { ...ghost, direction: newDirection, position: { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y } }
-            }
-
-            let targetTile: Position
-            if (newState.powerMode) {
-              // Frightened mode: random movement
-              const directions = [
-                { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
-              ]
-              const validDirections = directions.filter(dir => {
-                const testPos = {
-                  x: ghost.position.x + dir.x,
-                  y: ghost.position.y + dir.y
-                }
-                return testPos.x >= 0 && testPos.x < GRID_SIZE && 
-                       testPos.y >= 0 && testPos.y < GRID_SIZE && 
-                       MAZE[testPos.y][testPos.x] !== 1
-              })
-              const newDirection = validDirections[Math.floor(Math.random() * validDirections.length)]
-              targetTile = { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y }
-            } else {
-              // Chase/Scatter mode
-              switch (ghost.type) {
-                case 'blinky':
-                  targetTile = newState.pacmon
-                  break
-                case 'pinky':
-                  // 4 tiles in front of Pac-Man
-                  targetTile = {
-                    x: newState.pacmon.x + newState.pacmonDirection.x * 4,
-                    y: newState.pacmon.y + newState.pacmonDirection.y * 4
-                  }
-                  break
-                case 'inky':
-                  // Complex: depends on Pac-Man and Blinky
-                  const blinky = newState.ghosts.find(g => g.type === 'blinky')
-                  if (blinky) {
-                    const pacmanTwoAhead = {
-                      x: newState.pacmon.x + newState.pacmonDirection.x * 2,
-                      y: newState.pacmon.y + newState.pacmonDirection.y * 2
-                    }
-                    const vector = {
-                      x: pacmanTwoAhead.x - blinky.position.x,
-                      y: pacmanTwoAhead.y - blinky.position.y
-                    }
-                    targetTile = { x: blinky.position.x + vector.x * 2, y: blinky.position.y + vector.y * 2 }
-                  } else {
-                    targetTile = newState.pacmon // Fallback
-                  }
-                  break
-                case 'clyde':
-                  // Scatter if close to Pac-Man, else chase
-                  const distance = Math.sqrt(
-                    Math.pow(ghost.position.x - newState.pacmon.x, 2) +
-                    Math.pow(ghost.position.y - newState.pacmon.y, 2)
-                  )
-                  if (distance < 8) {
-                    targetTile = ghost.scatterTarget
-                  } else {
-                    targetTile = newState.pacmon
-                  }
-                  break
-                default:
-                  targetTile = newState.pacmon
-              }
-            }
-
-            // Ghost movement logic (shortest path to target, avoiding walls)
-            const possibleDirections = [
-              { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
-            ]
-            let bestDirection = ghost.direction
-            let minDistance = Infinity
-
-            possibleDirections.forEach(dir => {
-              const nextPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
-              if (nextPos.x >= 0 && nextPos.x < GRID_SIZE && nextPos.y >= 0 && nextPos.y < GRID_SIZE && MAZE[nextPos.y][nextPos.x] !== 1) {
-                const distance = Math.sqrt(
-                  Math.pow(nextPos.x - targetTile.x, 2) +
-                  Math.pow(nextPos.y - targetTile.y, 2)
-                )
-                if (distance < minDistance) {
-                  minDistance = distance
-                  bestDirection = dir
-                }
-              }
-            })
-
-            return { ...ghost, direction: bestDirection, position: { x: ghost.position.x + bestDirection.x, y: ghost.position.y + bestDirection.y }, vulnerable: newState.powerMode }
-          })
-          
-          // Check ghost collisions
-          newState.ghosts.forEach(ghost => {
-            if (ghost.position.x === newState.pacmon.x && ghost.position.y === newState.pacmon.y) {
-              if (ghost.vulnerable) {
-                // Eat ghost
-                newState.score += 200
-                ghost.eaten = true
-                ghost.vulnerable = false
-              } else if (!ghost.eaten) {
-                // Lose life
-                newState.lives -= 1
-                newState.pacmon = { x: 9, y: 15 } // Reset Pacmon position
-                newState.pacmonDirection = { x: 0, y: 0 } // Stop Pacmon
-                newState.ghosts = newState.ghosts.map(g => ({ ...g, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, vulnerable: false, eaten: false })) // Reset ghosts
-                if (newState.lives <= 0) {
-                  newState.gameStatus = 'gameOver'
-                  // Trigger achievement reward
-                  handleAchievementReward(newState.score)
-                }
-              }
-            }
-          })
-          
-          // Power mode timer
-          if (newState.powerMode) {
-            newState.powerModeTimer -= 1
-            if (newState.powerModeTimer <= 0) {
-              newState.powerMode = false
-              newState.ghosts = newState.ghosts.map(ghost => ({ ...ghost, vulnerable: false }))
-            }
-          }
-          
-          // Check level complete
-          if (newState.pellets.length === 0 && newState.powerPellets.length === 0) {
-            newState.gameStatus = 'levelComplete'
-            // Trigger achievement reward for level completion
-            handleAchievementReward(newState.score + 500) // Bonus for completing level
-          }
-          
-          return newState
-        })
-      }
-    }, 200)
-
-    return () => clearInterval(gameLoop)
-  }, [gameState.gameStatus])
+    // Check win condition
+    if (dots.size === 0) {
+      setGameOver(true);
+    }
+  }, [pacmonPos, ghosts, dots]);
 
   // Handle keyboard input
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    if (gameState.gameStatus !== 'playing') return
-
-    const { key } = event
-    let newDirection = { x: 0, y: 0 }
-
-    switch (key) {
-      case 'ArrowUp':
-      case 'w':
-      case 'W':
-        newDirection.y = -1
-        break
-      case 'ArrowDown':
-      case 's':
-      case 'S':
-        newDirection.y = 1
-        break
-      case 'ArrowLeft':
-      case 'a':
-      case 'A':
-        newDirection.x = -1
-        break
-      case 'ArrowRight':
-      case 'd':
-      case 'D':
-        newDirection.x = 1
-        break
-      default:
-        return
-    }
-
-    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
-    const nextX = gameState.pacmon.x + newDirection.x
-    const nextY = gameState.pacmon.y + newDirection.y
-
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && MAZE[nextY][nextX] !== 1) {
-      setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
-    }
-  }, [gameState.pacmon, gameState.gameStatus])
-
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleKeyPress])
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (gameOver) return;
 
-  // Render game
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.fillStyle = COLORS.MONAD_BLACK
-    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
-
-    // Draw maze
-    ctx.fillStyle = COLORS.MONAD_BLUE
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        if (MAZE[y][x] === 1) {
-          ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-        }
+      switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+          setDirection({ x: 0, y: -1 });
+          break;
+        case 'ArrowDown':
+        case 's':
+          setDirection({ x: 0, y: 1 });
+          break;
+        case 'ArrowLeft':
+        case 'a':
+          setDirection({ x: -1, y: 0 });
+          break;
+        case 'ArrowRight':
+        case 'd':
+          setDirection({ x: 1, y: 0 });
+          break;
       }
-    }
+    };
 
-    // Draw pellets
-    ctx.fillStyle = COLORS.MONAD_OFF_WHITE
-    gameState.pellets.forEach(pellet => {
-      ctx.beginPath()
-      ctx.arc(
-        pellet.x * CELL_SIZE + CELL_SIZE / 2,
-        pellet.y * CELL_SIZE + CELL_SIZE / 2,
-        2,
-        0,
-        2 * Math.PI
-      )
-      ctx.fill()
-    })
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [gameOver]);
 
-    // Draw power pellets
-    ctx.fillStyle = COLORS.MONAD_PURPLE
-    gameState.powerPellets.forEach(pellet => {
-      ctx.beginPath()
-      ctx.arc(
-        pellet.x * CELL_SIZE + CELL_SIZE / 2,
-        pellet.y * CELL_SIZE + CELL_SIZE / 2,
-        6,
-        0,
-        2 * Math.PI
-      )
-      ctx.fill()
-    })
-
-    // Draw Pacmon
-    ctx.fillStyle = COLORS.MONAD_PURPLE
-    ctx.beginPath()
-    ctx.arc(
-      gameState.pacmon.x * CELL_SIZE + CELL_SIZE / 2,
-      gameState.pacmon.y * CELL_SIZE + CELL_SIZE / 2,
-      CELL_SIZE / 2 - 2,
-      0.2 * Math.PI,
-      1.8 * Math.PI
-    )
-    ctx.lineTo(
-      gameState.pacmon.x * CELL_SIZE + CELL_SIZE / 2,
-      gameState.pacmon.y * CELL_SIZE + CELL_SIZE / 2
-    )
-    ctx.fill()
-
-    // Draw ghosts
-    gameState.ghosts.forEach(ghost => {
-      ctx.fillStyle = ghost.vulnerable ? COLORS.MONAD_BERRY : ghost.color
-      ctx.beginPath()
-      ctx.arc(
-        ghost.position.x * CELL_SIZE + CELL_SIZE / 2,
-        ghost.position.y * CELL_SIZE + CELL_SIZE / 2,
-        CELL_SIZE / 2 - 2,
-        Math.PI,
-        2 * Math.PI
-      )
-      ctx.rect(
-        ghost.position.x * CELL_SIZE + 2,
-        ghost.position.y * CELL_SIZE + CELL_SIZE / 2,
-        CELL_SIZE - 4,
-        CELL_SIZE / 2 - 2
-      )
-      ctx.fill()
-      
-      // Ghost eyes
-      ctx.fillStyle = COLORS.WHITE
-      ctx.fillRect(
-        ghost.position.x * CELL_SIZE + 5,
-        ghost.position.y * CELL_SIZE + 5,
-        3,
-        3
-      )
-      ctx.fillRect(
-        ghost.position.x * CELL_SIZE + 12,
-        ghost.position.y * CELL_SIZE + 5,
-        3,
-        3
-      )
-    })
-  }, [gameState])
-
-  const handlePayment = async () => {
-    if (!isConnected) {
-      if (isEthProviderAvailable) {
-        connect({ connector: farcasterFrame() })
-      }
-      return
-    }
-
-    if (chainId !== monadTestnet.id) {
-      switchChain({ chainId: monadTestnet.id })
-      return
-    }
-
-    try {
-      await sendTransaction({
-        to: '0x7f748f154B6D180D35fA12460C7E4C631e28A9d7', // Game treasury address
-        value: parseEther('0.0001'),
-      })
-      // Start the game after successful payment
-      setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
-    } catch (error) {
-      console.error('Payment failed:', error)
-    }
-  }
-
-  const handleAchievementReward = async (score: number) => {
-    if (!isConnected || chainId !== monadTestnet.id) return
-
-    // Send achievement reward transaction
-    try {
-      const rewardAmount = Math.floor(score / 1000) * 0.00001 // 0.00001 MON per 1000 points
-      if (rewardAmount > 0) {
-        await sendTransaction({
-          to: address!, // Send reward to player
-          value: parseEther(rewardAmount.toString()),
-        })
-      }
-    } catch (error) {
-      console.error('Achievement reward failed:', error)
-    }
-  }
-
-  const startGame = () => {
-    // Re-enable wallet integration for production
-    if (!isConnected) {
-      handlePayment()
-    } else {
-      handlePayment()
-    }
-    
-    // Remove test mode - comment out below for testing
-    // setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
-  }
-
+  // Restart game
   const restartGame = () => {
-    const newHighScore = gameState.highScore > gameState.score ? gameState.highScore : gameState.score
-    const newTotalPlays = gameState.totalPlays + 1
-    
-    // Save updated statistics including final score for rankings
-    saveGameStats(newHighScore, newTotalPlays, gameState.score)
-    
-    setGameState({
-      pacmon: { x: 9, y: 15 },
-      pacmonDirection: { x: 0, y: 0 }, // Reset Pacmon direction
-      ghosts: [
-        { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
-        { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
-        { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_BLUE, vulnerable: false, type: 'inky', scatterTarget: { x: 18, y: 18 }, eaten: false },
-        { id: 4, position: { x: 10, y: 10 }, direction: { x: 0, y: -1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false, type: 'clyde', scatterTarget: { x: 1, y: 18 }, eaten: false }
-      ],
-      pellets: [],
-      powerPellets: [],
-      score: 0,
-      lives: 3,
-      gameStatus: 'pregame',
-      powerMode: false,
-      powerModeTimer: 0,
-      highScore: newHighScore,
-      totalPlayers: gameState.totalPlayers,
-      totalPlays: newTotalPlays,
-      topScores: gameState.topScores
-    })
-    
-    // Reinitialize pellets
-    const pellets: Position[] = []
-    const powerPellets: Position[] = []
-    
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        if (MAZE[y][x] === 2) {
-          pellets.push({ x, y })
-        } else if (MAZE[y][x] === 3) {
-          powerPellets.push({ x, y })
+    setPacmonPos({ x: 1, y: 1 });
+    setGhosts([
+      { x: 18, y: 1, color: 'red' },
+      { x: 18, y: 18, color: 'pink' },
+      { x: 1, y: 18, color: 'cyan' },
+    ]);
+    setScore(0);
+    setGameOver(false);
+    setDirection({ x: 0, y: 0 });
+
+    // Reinitialize dots
+    const initialDots = new Set<string>();
+    for (let x = 0; x < GRID_SIZE; x++) {
+      for (let y = 0; y < GRID_SIZE; y++) {
+        if (!isWall(x, y) && !(x === 1 && y === 1)) {
+          initialDots.add(`${x},${y}`);
         }
       }
     }
-    
-    setGameState(prev => ({ ...prev, pellets, powerPellets }))
-  }
-
-  // Handle mobile controls
-  const handleDirectionPress = useCallback((direction: Position) => {
-    if (gameState.gameStatus !== 'playing') return
-
-    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
-    const nextX = gameState.pacmon.x + direction.x
-    const nextY = gameState.pacmon.y + direction.y
-
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && MAZE[nextY][nextX] !== 1) {
-      setGameState(prev => ({ ...prev, pacmonDirection: direction }))
-    }
-  }, [gameState.pacmon, gameState.gameStatus])
+    setDots(initialDots);
+  };
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-      {gameState.gameStatus === 'pregame' ? (
-        <>
-          <div className="flex flex-col items-center justify-center flex-1 px-4 space-y-6">
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
-                PACMON
-              </h1>
-              
-              {/* Top 3 Scores */}
-              <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                  Today's High Scores
-                </div>
-                
-                {gameState.topScores.length > 0 ? (
-                  <div className="space-y-2">
-                    {gameState.topScores.map((entry, index) => (
-                      <div key={index} className="flex justify-between items-center px-4 py-2 rounded-lg" style={{ backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-                        <span className="font-bold" style={{ color: index === 0 ? COLORS.MONAD_BERRY : index === 1 ? COLORS.MONAD_BLUE : COLORS.MONAD_PURPLE }}>
-                          {index + 1}{index === 0 ? 'st' : index === 1 ? 'nd' : 'rd'}
-                        </span>
-                        <span className="font-mono text-sm">
-                          {entry.score.toLocaleString()}
-                        </span>
-                        <span className="font-mono text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                          ...{entry.wallet.slice(-4)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-base" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    No scores yet - be the first!
-                  </div>
-                )}
-              </div>
-            </div>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      padding: '20px',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      <h1 style={{ color: '#FFD700', marginBottom: '10px' }}>Pacmon Game</h1>
 
-            {/* Wallet Connection Status */}
-            {isConnected && (
-              <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-                <div className="text-center space-y-2">
-                  <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                    Wallet Connected
-                  </div>
-                  <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    {address?.slice(0, 6)}...{address?.slice(-4)}
-                  </div>
-                  <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
-                  </div>
-                </div>
-              </div>
-            )}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        width: `${GRID_SIZE * CELL_SIZE}px`,
+        marginBottom: '10px'
+      }}>
+        <div style={{ color: '#FFD700', fontSize: '18px', fontWeight: 'bold' }}>
+          Score: {score}
+        </div>
+        <div style={{ color: '#FFD700', fontSize: '18px', fontWeight: 'bold' }}>
+          Dots: {dots.size}
+        </div>
+      </div>
 
-            <div className="w-full max-w-md space-y-4">
-              <button
-                onClick={startGame}
-                className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_BERRY, 
-                  color: COLORS.WHITE 
-                }}
-              >
-                {!isConnected ? 'Connect Wallet & Pay 0.0001 MON' : 
-                 chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
-                 'Pay 0.0001 MON for +1 Play'}
-              </button>
+      <div style={{
+        position: 'relative',
+        width: `${GRID_SIZE * CELL_SIZE}px`,
+        height: `${GRID_SIZE * CELL_SIZE}px`,
+        backgroundColor: '#000',
+        border: '2px solid #0000FF'
+      }}>
+        {/* Render dots */}
+        {Array.from(dots).map(dotKey => {
+          const [x, y] = dotKey.split(',').map(Number);
+          return (
+            <div
+              key={dotKey}
+              style={{
+                position: 'absolute',
+                left: `${x * CELL_SIZE + CELL_SIZE/2 - 2}px`,
+                top: `${y * CELL_SIZE + CELL_SIZE/2 - 2}px`,
+                width: '4px',
+                height: '4px',
+                backgroundColor: '#FFD700',
+                borderRadius: '50%'
+              }}
+            />
+          );
+        })}
 
-              {isConnected && (
-                <button
-                  onClick={() => disconnect()}
-                  className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
-                  style={{ 
-                    backgroundColor: 'transparent', 
-                    color: COLORS.MONAD_OFF_WHITE,
-                    border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
+        {/* Render walls */}
+        {Array.from({ length: GRID_SIZE }, (_, x) =>
+          Array.from({ length: GRID_SIZE }, (_, y) => {
+            if (isWall(x, y)) {
+              return (
+                <div
+                  key={`wall-${x}-${y}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${x * CELL_SIZE}px`,
+                    top: `${y * CELL_SIZE}px`,
+                    width: `${CELL_SIZE}px`,
+                    height: `${CELL_SIZE}px`,
+                    backgroundColor: '#0000FF'
                   }}
-                >
-                  Disconnect Wallet
-                </button>
-              )}
-            </div>
+                />
+              );
+            }
+            return null;
+          })
+        )}
 
-            <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <p>Swipe/Mouse to move, tap/click to play</p>
-              <p className="mt-1">Eat all pellets while avoiding ghosts!</p>
-              <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
-                Earn MON rewards for high scores and achievements!
-              </p>
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-            <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
-              PACMON
-            </h1>
-            <div className="flex justify-center space-x-4 text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <div>Score: {gameState.score}</div>
-              <div>Lives: {gameState.lives}</div>
-              {gameState.powerMode && (
-                <div style={{ color: COLORS.MONAD_PURPLE }}>
-                  Power: {Math.ceil(gameState.powerModeTimer / 5)}s
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Render Pacmon */}
+        <div
+          style={{
+            position: 'absolute',
+            left: `${pacmonPos.x * CELL_SIZE}px`,
+            top: `${pacmonPos.y * CELL_SIZE}px`,
+            width: `${CELL_SIZE}px`,
+            height: `${CELL_SIZE}px`,
+            backgroundColor: '#FFFF00',
+            borderRadius: '50%',
+            zIndex: 10
+          }}
+        />
 
-          <div className="flex-1 flex flex-col">
-            <div className="flex-1 relative">
-              <canvas
-                ref={canvasRef}
-                width={GAME_WIDTH}
-                height={GAME_HEIGHT}
-                className="w-full h-full object-contain"
-                style={{ backgroundColor: COLORS.MONAD_BLACK }}
-              />
-            
-            {gameState.gameStatus === 'gameOver' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <div className="text-center">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_BERRY }}>
-                    Game Over
-                  </h2>
-                  <p className="text-lg md:text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    Final Score: {gameState.score}
-                  </p>
-                  <button
-                    onClick={restartGame}
-                    className="px-4 md:px-6 py-2 md:py-3 text-base md:text-lg font-bold rounded"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE 
-                    }}
-                  >
-                    Play Again
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {gameState.gameStatus === 'levelComplete' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <div className="text-center">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_PURPLE }}>
-                    Level Complete!
-                  </h2>
-                  <p className="text-lg md:text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    Score: {gameState.score}
-                  </p>
-                  <button
-                    onClick={restartGame}
-                    className="px-4 md:px-6 py-2 md:py-3 text-base md:text-lg font-bold rounded"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE 
-                    }}
-                  >
-                    Next Level
-                  </button>
-                </div>
-              </div>
-            )}
+        {/* Render ghosts */}
+        {ghosts.map((ghost, index) => (
+          <div
+            key={index}
+            style={{
+              position: 'absolute',
+              left: `${ghost.x * CELL_SIZE}px`,
+              top: `${ghost.y * CELL_SIZE}px`,
+              width: `${CELL_SIZE}px`,
+              height: `${CELL_SIZE}px`,
+              backgroundColor: ghost.color,
+              borderRadius: '50% 50% 0 0',
+              zIndex: 5
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+        <div style={{ color: '#FFD700', marginBottom: '10px' }}>
+          Use arrow keys or WASD to move
+        </div>
+
+        {gameOver && (
+          <div style={{ marginTop: '10px' }}>
+            <div style={{ 
+              color: dots.size === 0 ? '#00FF00' : '#FF0000', 
+              fontSize: '24px', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              {dots.size === 0 ? 'YOU WIN!' : 'GAME OVER!'}
             </div>
-            
-            {/* Mobile Controls - Fixed at bottom */}
-            <div className="bg-black py-4 md:hidden">
-              <div className="flex flex-col items-center space-y-4">
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
-                  onClick={() => handleDirectionPress({ x: 0, y: -1 })}
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE
-                  }}
-                >
-                  ↑
-                </button>
-                <div className="flex space-x-8">
-                  <button
-                    onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
-                    onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE,
-                      borderColor: COLORS.MONAD_OFF_WHITE
-                    }}
-                  >
-                    ←
-                  </button>
-                  <button
-                    onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
-                    onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE,
-                      borderColor: COLORS.MONAD_OFF_WHITE
-                    }}
-                  >
-                    →
-                  </button>
-                </div>
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
-                  onClick={() => handleDirectionPress({ x: 0, y: 1 })}
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE
-                  }}
-                >
-                  ↓
-                </button>
-              </div>
-            </div>
+            <button
+              onClick={restartGame}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#FFD700',
+                color: '#000',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Play Again
+            </button>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
+}
+
+export default PacmonGame;
