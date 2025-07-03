@@ -111,10 +111,48 @@ export default function PacmonGame() {
     gameStatus: 'pregame',
     powerMode: false,
     powerModeTimer: 0,
-    highScore: 15420,
-    totalPlayers: 2847,
-    totalPlays: 8932
+    highScore: 0,
+    totalPlayers: 0,
+    totalPlays: 0
   })
+
+  // Load game statistics from localStorage on component mount
+  useEffect(() => {
+    const loadGameStats = () => {
+      try {
+        const savedHighScore = localStorage.getItem('pacmon_high_score')
+        const savedTotalPlayers = localStorage.getItem('pacmon_total_players')
+        const savedTotalPlays = localStorage.getItem('pacmon_total_plays')
+        
+        setGameState(prev => ({
+          ...prev,
+          highScore: savedHighScore ? parseInt(savedHighScore) : 0,
+          totalPlayers: savedTotalPlayers ? parseInt(savedTotalPlayers) : 0,
+          totalPlays: savedTotalPlays ? parseInt(savedTotalPlays) : 0
+        }))
+      } catch (error) {
+        console.error('Error loading game stats:', error)
+      }
+    }
+    
+    loadGameStats()
+  }, [])
+
+  // Save game statistics to localStorage
+  const saveGameStats = (newHighScore: number, newTotalPlays: number) => {
+    try {
+      localStorage.setItem('pacmon_high_score', newHighScore.toString())
+      localStorage.setItem('pacmon_total_plays', newTotalPlays.toString())
+      
+      // Increment total players if this is a new player (simplified logic)
+      const currentPlayers = parseInt(localStorage.getItem('pacmon_total_players') || '0')
+      if (newTotalPlays === 1) {
+        localStorage.setItem('pacmon_total_players', (currentPlayers + 1).toString())
+      }
+    } catch (error) {
+      console.error('Error saving game stats:', error)
+    }
+  }
 
   // Initialize pellets and power pellets from maze
   useEffect(() => {
@@ -524,18 +562,24 @@ export default function PacmonGame() {
   }
 
   const startGame = () => {
-    // For testing purposes, start the game directly
-    setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+    // Re-enable wallet integration for production
+    if (!isConnected) {
+      handlePayment()
+    } else {
+      handlePayment()
+    }
     
-    // Uncomment below for production with wallet integration
-    // if (!isConnected) {
-    //   handlePayment()
-    // } else {
-    //   handlePayment()
-    // }
+    // Remove test mode - comment out below for testing
+    // setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
   }
 
   const restartGame = () => {
+    const newHighScore = gameState.highScore > gameState.score ? gameState.highScore : gameState.score
+    const newTotalPlays = gameState.totalPlays + 1
+    
+    // Save updated statistics
+    saveGameStats(newHighScore, newTotalPlays)
+    
     setGameState({
       pacmon: { x: 9, y: 15 },
       pacmonDirection: { x: 0, y: 0 }, // Reset Pacmon direction
@@ -552,9 +596,9 @@ export default function PacmonGame() {
       gameStatus: 'pregame',
       powerMode: false,
       powerModeTimer: 0,
-      highScore: gameState.highScore > gameState.score ? gameState.highScore : gameState.score,
+      highScore: newHighScore,
       totalPlayers: gameState.totalPlayers,
-      totalPlays: gameState.totalPlays + 1
+      totalPlays: newTotalPlays
     })
     
     // Reinitialize pellets
@@ -588,9 +632,9 @@ export default function PacmonGame() {
   }, [gameState.pacmon, gameState.gameStatus])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-2 md:p-4" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
       {gameState.gameStatus === 'pregame' && (
-        <div className="flex flex-col items-center justify-center w-full max-w-md space-y-6">
+        <div className="flex flex-col items-center justify-center flex-1 px-4 space-y-6">
           <div className="text-center space-y-4">
             <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
               PACMON
@@ -610,7 +654,7 @@ export default function PacmonGame() {
 
           {/* Wallet Connection Status */}
           {isConnected && (
-            <div className="w-full p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
               <div className="text-center space-y-2">
                 <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
                   Wallet Connected
@@ -625,7 +669,7 @@ export default function PacmonGame() {
             </div>
           )}
 
-          <div className="w-full space-y-4">
+          <div className="w-full max-w-md space-y-4">
             <button
               onClick={startGame}
               className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
@@ -676,12 +720,12 @@ export default function PacmonGame() {
       )}
 
       {gameState.gameStatus !== 'pregame' && (
-        <>
-          <div className="text-center mb-2 md:mb-4">
-            <h1 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2" style={{ color: COLORS.MONAD_PURPLE }}>
+        <div className="flex flex-col h-screen">
+          <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+            <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
               PACMON
             </h1>
-            <div className="flex justify-center space-x-4 md:space-x-8 text-sm md:text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+            <div className="flex justify-center space-x-4 text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
               <div>Score: {gameState.score}</div>
               <div>Lives: {gameState.lives}</div>
               {gameState.powerMode && (
@@ -692,14 +736,74 @@ export default function PacmonGame() {
             </div>
           </div>
 
-          <div className="relative mb-4">
+          <div className="flex-1 relative">
             <canvas
               ref={canvasRef}
               width={GAME_WIDTH}
               height={GAME_HEIGHT}
-              className="border-2 max-w-full h-auto"
-              style={{ borderColor: COLORS.MONAD_PURPLE }}
+              className="w-full h-full"
+              style={{ backgroundColor: COLORS.MONAD_BLACK }}
             />
+            
+            {/* Mobile Controls Overlay */}
+            <div className="absolute bottom-4 right-4 flex flex-col items-center space-y-3 md:hidden">
+              <div className="flex flex-col items-center space-y-3">
+                <button
+                  onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
+                  onClick={() => handleDirectionPress({ x: 0, y: -1 })}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                  style={{ 
+                    backgroundColor: COLORS.MONAD_PURPLE, 
+                    color: COLORS.WHITE,
+                    borderColor: COLORS.MONAD_OFF_WHITE,
+                    opacity: 0.9
+                  }}
+                >
+                  ↑
+                </button>
+                <div className="flex space-x-4">
+                  <button
+                    onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
+                    onClick={() => handleDirectionPress({ x: -1, y: 0 })}
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                    style={{ 
+                      backgroundColor: COLORS.MONAD_PURPLE, 
+                      color: COLORS.WHITE,
+                      borderColor: COLORS.MONAD_OFF_WHITE,
+                      opacity: 0.9
+                    }}
+                  >
+                    ←
+                  </button>
+                  <button
+                    onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
+                    onClick={() => handleDirectionPress({ x: 1, y: 0 })}
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                    style={{ 
+                      backgroundColor: COLORS.MONAD_PURPLE, 
+                      color: COLORS.WHITE,
+                      borderColor: COLORS.MONAD_OFF_WHITE,
+                      opacity: 0.9
+                    }}
+                  >
+                    →
+                  </button>
+                </div>
+                <button
+                  onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
+                  onClick={() => handleDirectionPress({ x: 0, y: 1 })}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                  style={{ 
+                    backgroundColor: COLORS.MONAD_PURPLE, 
+                    color: COLORS.WHITE,
+                    borderColor: COLORS.MONAD_OFF_WHITE,
+                    opacity: 0.9
+                  }}
+                >
+                  ↓
+                </button>
+              </div>
+            </div>
             
             {gameState.gameStatus === 'gameOver' && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -747,68 +851,7 @@ export default function PacmonGame() {
               </div>
             )}
           </div>
-
-          {/* Mobile Controls */}
-          <div className="flex flex-col items-center space-y-4 md:hidden">
-            <div className="flex flex-col items-center space-y-2">
-              <button
-                onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
-                onClick={() => handleDirectionPress({ x: 0, y: -1 })}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_PURPLE, 
-                  color: COLORS.WHITE,
-                  borderColor: COLORS.MONAD_OFF_WHITE
-                }}
-              >
-                ↑
-              </button>
-              <div className="flex space-x-2">
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
-                  onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE
-                  }}
-                >
-                  ←
-                </button>
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
-                  onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE
-                  }}
-                >
-                  →
-                </button>
-              </div>
-              <button
-                onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
-                onClick={() => handleDirectionPress({ x: 0, y: 1 })}
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_PURPLE, 
-                  color: COLORS.WHITE,
-                  borderColor: COLORS.MONAD_OFF_WHITE
-                }}
-              >
-                ↓
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-2 md:mt-4 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-            <p className="text-xs md:text-sm">Use arrow keys or WASD to move</p>
-            <p className="text-xs mt-1 md:mt-2">Eat all pellets while avoiding ghosts!</p>
-          </div>
-        </>
+        </div>
       )}
     </div>
   )
