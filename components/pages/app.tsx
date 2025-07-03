@@ -31,8 +31,15 @@ export default function Home() {
   // }
 
   return (
-    <SafeAreaContainer insets={context?.client.safeAreaInsets}>
-      <PacmonGame />
+    <SafeAreaContainer insets={context?.client?.safeAreaInsets}>
+      {isSDKLoaded ? (
+        <PacmonGame />
+      ) : (
+        <div className="flex min-h-screen flex-col items-center justify-center p-4 space-y-8">
+          <h1 className="text-3xl font-bold text-center">
+            Loading Farcaster SDK...
+          </h1>
+        </div>
+      )}
     </SafeAreaContainer>
   )
-}
