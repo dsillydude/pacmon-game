@@ -88,7 +88,7 @@ class SoundManager {
 
   private loadSounds() {
     const soundFiles = {
-      pelletEat: '/sounds/pellet-eat.mp3',
+      pelletEat: '/sounds/pellet-eat.ogg',
       powerPellet: '/sounds/power-pellet.mp3',
       ghostEat: '/sounds/ghost-eat.mp3',
       death: '/sounds/death.mp3',
