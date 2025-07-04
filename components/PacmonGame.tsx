@@ -850,16 +850,7 @@ export default function PacmonGame() {
               View Leaderboard
             </button>
 
-            <button
-              onClick={toggleSounds}
-              className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-              style={{ 
-                backgroundColor: COLORS.MONAD_BLUE, 
-                color: COLORS.WHITE 
-              }}
-            >
-              {soundManagerRef.current?.getSoundsEnabled() ? '🔊 Sounds On' : '🔇 Sounds Off'}
-            </button>
+
 
             {isConnected && (
               <button
