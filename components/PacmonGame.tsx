@@ -632,22 +632,42 @@ export default function PacmonGame() {
   }, [gameState.pacmon, gameState.gameStatus])
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+    <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
       {gameState.gameStatus === 'pregame' && (
-        <div className="flex flex-col items-center justify-center flex-1 px-4 space-y-6">
+        <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
           <div className="text-center space-y-4">
             <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
               PACMON
             </h1>
-            <div className="space-y-2 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+            <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
               <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                Today's High Score: {gameState.highScore.toLocaleString()}
+                Today's High Scores
               </div>
-              <div className="text-base md:text-lg" style={{ color: COLORS.MONAD_BERRY }}>
-                Total Players: {gameState.totalPlayers.toLocaleString()}
-              </div>
-              <div className="text-base md:text-lg" style={{ color: COLORS.MONAD_BLUE }}>
-                Total Plays: {gameState.totalPlays.toLocaleString()}
+              <div className="space-y-2 bg-black bg-opacity-30 rounded-lg p-4">
+                <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_BERRY }}>
+                  <span className="flex items-center">
+                    <span className="text-xl mr-2">🥇</span>
+                    <span className="font-bold">1st</span>
+                  </span>
+                  <span className="font-mono">{gameState.highScore.toLocaleString()}</span>
+                  <span className="text-sm font-mono">{address ? `${address.slice(0, 4)}...${address.slice(-4)}` : '0x0000...0000'}</span>
+                </div>
+                <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_BLUE }}>
+                  <span className="flex items-center">
+                    <span className="text-xl mr-2">🥈</span>
+                    <span className="font-bold">2nd</span>
+                  </span>
+                  <span className="font-mono">0</span>
+                  <span className="text-sm font-mono">0x0000...0000</span>
+                </div>
+                <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  <span className="flex items-center">
+                    <span className="text-xl mr-2">🥉</span>
+                    <span className="font-bold">3rd</span>
+                  </span>
+                  <span className="font-mono">0</span>
+                  <span className="text-sm font-mono">0x0000...0000</span>
+                </div>
               </div>
             </div>
           </div>
@@ -669,10 +689,10 @@ export default function PacmonGame() {
             </div>
           )}
 
-          <div className="w-full max-w-md space-y-4">
+          <div className="w-full max-w-md space-y-4 px-4">
             <button
               onClick={startGame}
-              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+              className="w-full py-6 px-8 text-xl md:text-2xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
               style={{ 
                 backgroundColor: COLORS.MONAD_BERRY, 
                 color: COLORS.WHITE 
@@ -682,22 +702,11 @@ export default function PacmonGame() {
                chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
                'Pay 0.0001 MON for +1 Play'}
             </button>
-            
-            <button
-              onClick={() => {/* Rankings functionality will be added later */}}
-              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: COLORS.MONAD_BLUE, 
-                color: COLORS.WHITE 
-              }}
-            >
-              Rankings
-            </button>
 
             {isConnected && (
               <button
                 onClick={() => disconnect()}
-                className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
+                className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
                 style={{ 
                   backgroundColor: 'transparent', 
                   color: COLORS.MONAD_OFF_WHITE,
@@ -720,7 +729,7 @@ export default function PacmonGame() {
       )}
 
       {gameState.gameStatus !== 'pregame' && (
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-screen w-full">
           <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
             <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
               PACMON
@@ -736,22 +745,25 @@ export default function PacmonGame() {
             </div>
           </div>
 
-          <div className="flex-1 relative">
-            <canvas
-              ref={canvasRef}
-              width={GAME_WIDTH}
-              height={GAME_HEIGHT}
-              className="w-full h-full"
-              style={{ backgroundColor: COLORS.MONAD_BLACK }}
-            />
+          <div className="flex flex-col h-full">
+            {/* Game Canvas Container - Takes up most of the space */}
+            <div className="flex-1 flex items-start justify-center pt-4">
+              <canvas
+                ref={canvasRef}
+                width={GAME_WIDTH}
+                height={GAME_HEIGHT}
+                className="max-w-full max-h-full"
+                style={{ backgroundColor: COLORS.MONAD_BLACK }}
+              />
+            </div>
             
-            {/* Mobile Controls Overlay */}
-            <div className="absolute bottom-4 right-4 flex flex-col items-center space-y-3 md:hidden">
-              <div className="flex flex-col items-center space-y-3">
+            {/* Mobile Controls - Fixed at bottom with larger buttons */}
+            <div className="flex justify-center pb-8 pt-4 md:hidden">
+              <div className="flex flex-col items-center space-y-4">
                 <button
                   onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
                   onClick={() => handleDirectionPress({ x: 0, y: -1 })}
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                   style={{ 
                     backgroundColor: COLORS.MONAD_PURPLE, 
                     color: COLORS.WHITE,
@@ -761,11 +773,11 @@ export default function PacmonGame() {
                 >
                   ↑
                 </button>
-                <div className="flex space-x-4">
+                <div className="flex space-x-6">
                   <button
                     onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
                     onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                    className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                     style={{ 
                       backgroundColor: COLORS.MONAD_PURPLE, 
                       color: COLORS.WHITE,
@@ -778,7 +790,7 @@ export default function PacmonGame() {
                   <button
                     onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
                     onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                    className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                     style={{ 
                       backgroundColor: COLORS.MONAD_PURPLE, 
                       color: COLORS.WHITE,
@@ -792,7 +804,7 @@ export default function PacmonGame() {
                 <button
                   onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
                   onClick={() => handleDirectionPress({ x: 0, y: 1 })}
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 active:scale-95 transition-transform"
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                   style={{ 
                     backgroundColor: COLORS.MONAD_PURPLE, 
                     color: COLORS.WHITE,
@@ -806,7 +818,7 @@ export default function PacmonGame() {
             </div>
             
             {gameState.gameStatus === 'gameOver' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 z-10">
                 <div className="text-center">
                   <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_BERRY }}>
                     Game Over
@@ -829,7 +841,7 @@ export default function PacmonGame() {
             )}
             
             {gameState.gameStatus === 'levelComplete' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 z-10">
                 <div className="text-center">
                   <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_PURPLE }}>
                     Level Complete!
