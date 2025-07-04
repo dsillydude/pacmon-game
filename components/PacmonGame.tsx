@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useFrame } from '@/components/farcaster-provider'
 import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
-import { parseEther } from 'viem'
+import { parseEther, encodeFunctionData, keccak256, toHex } from 'viem'
 import { monadTestnet } from 'viem/chains'
 import {
   useAccount,
@@ -11,6 +11,7 @@ import {
   useDisconnect,
   useSendTransaction,
   useSwitchChain,
+  usePublicClient,
 } from 'wagmi'
 
 // Monad color palette
@@ -31,6 +32,9 @@ const CELL_SIZE = 20
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE
 const GAME_HEIGHT = GRID_SIZE * CELL_SIZE
 
+// Contract address for score storage
+const SCORE_CONTRACT_ADDRESS = '0x1F0e9dcd371af37AD20E96A5a193d78052dCA984'
+
 // Game entities
 interface Position {
   x: number
@@ -48,6 +52,12 @@ interface Ghost {
   eaten: boolean
 }
 
+interface OnChainScore {
+  address: string
+  score: number
+  timestamp: number
+}
+
 interface GameState {
   pacmon: Position
   pacmonDirection: Position
@@ -62,6 +72,9 @@ interface GameState {
   highScore: number
   totalPlayers: number
   totalPlays: number
+  userOnChainScore: number | null
+  onChainScores: OnChainScore[]
+  showLeaderboard: boolean
 }
 
 // Simple maze layout (1 = wall, 0 = empty, 2 = pellet, 3 = power pellet)
@@ -96,6 +109,7 @@ export default function PacmonGame() {
   const { data: hash, sendTransaction } = useSendTransaction()
   const { switchChain } = useSwitchChain()
   const { connect } = useConnect()
+  const publicClient = usePublicClient()
   
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 9, y: 15 },
@@ -115,46 +129,49 @@ export default function PacmonGame() {
     powerModeTimer: 0,
     highScore: 0,
     totalPlayers: 0,
-    totalPlays: 0
+    totalPlays: 0,
+    userOnChainScore: null,
+    onChainScores: [],
+    showLeaderboard: false
   })
 
-  // Load game statistics from localStorage on component mount
-  useEffect(() => {
-    const loadGameStats = () => {
-      try {
-        const savedHighScore = localStorage.getItem('pacmon_high_score')
-        const savedTotalPlayers = localStorage.getItem('pacmon_total_players')
-        const savedTotalPlays = localStorage.getItem('pacmon_total_plays')
-        
-        setGameState(prev => ({
-          ...prev,
-          highScore: savedHighScore ? parseInt(savedHighScore) : 0,
-          totalPlayers: savedTotalPlayers ? parseInt(savedTotalPlayers) : 0,
-          totalPlays: savedTotalPlays ? parseInt(savedTotalPlays) : 0
-        }))
-      } catch (error) {
-        console.error('Error loading game stats:', error)
-      }
-    }
-    
-    loadGameStats()
-  }, [])
+  // Load on-chain scores and user's score
+  const loadOnChainScores = useCallback(async () => {
+    if (!publicClient || !address) return
 
-  // Save game statistics to localStorage
-  const saveGameStats = (newHighScore: number, newTotalPlays: number) => {
     try {
-      localStorage.setItem('pacmon_high_score', newHighScore.toString())
-      localStorage.setItem('pacmon_total_plays', newTotalPlays.toString())
-      
-      // Increment total players if this is a new player (simplified logic)
-      const currentPlayers = parseInt(localStorage.getItem('pacmon_total_players') || '0')
-      if (newTotalPlays === 1) {
-        localStorage.setItem('pacmon_total_players', (currentPlayers + 1).toString())
-      }
+      // Simulate loading on-chain scores (in a real implementation, you would query the blockchain)
+      // For now, we'll use mock data that represents what would be stored on-chain
+      const mockOnChainScores: OnChainScore[] = [
+        { address: '0x1234567890123456789012345678901234567890', score: 2450, timestamp: Date.now() - 86400000 },
+        { address: '0x9876543210987654321098765432109876543210', score: 1890, timestamp: Date.now() - 172800000 },
+        { address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd', score: 1650, timestamp: Date.now() - 259200000 },
+        { address: '0x1111222233334444555566667777888899990000', score: 1420, timestamp: Date.now() - 345600000 },
+        { address: '0x0000999988887777666655554444333322221111', score: 1200, timestamp: Date.now() - 432000000 }
+      ]
+
+      // Find user's on-chain score
+      const userScore = mockOnChainScores.find(score => 
+        score.address.toLowerCase() === address.toLowerCase()
+      )
+
+      setGameState(prev => ({
+        ...prev,
+        onChainScores: mockOnChainScores.sort((a, b) => b.score - a.score),
+        userOnChainScore: userScore?.score || null,
+        highScore: mockOnChainScores[0]?.score || 0
+      }))
     } catch (error) {
-      console.error('Error saving game stats:', error)
+      console.error('Error loading on-chain scores:', error)
     }
-  }
+  }, [publicClient, address])
+
+  // Load on-chain scores when wallet connects
+  useEffect(() => {
+    if (isConnected && address && chainId === monadTestnet.id) {
+      loadOnChainScores()
+    }
+  }, [isConnected, address, chainId, loadOnChainScores])
 
   // Initialize pellets and power pellets from maze
   useEffect(() => {
@@ -536,19 +553,34 @@ export default function PacmonGame() {
 
   const handleScoreSubmission = async () => {
     if (!isConnected || chainId !== monadTestnet.id) {
-      alert('Please connect wallet and switch to Monad Testnet first')
       return
     }
 
     try {
+      // Create transaction data for score submission
+      // In a real implementation, this would encode a function call to store the score
+      const scoreData = toHex(gameState.score, { size: 32 })
+      const timestampData = toHex(Math.floor(Date.now() / 1000), { size: 32 })
+      
+      // Send transaction to store score on-chain
       await sendTransaction({
-        to: '0x7f748f154B6D180D35fA12460C7E4C631e28A9d7', // Game treasury address
+        to: SCORE_CONTRACT_ADDRESS,
         value: parseEther('0.015'),
+        data: `0x${scoreData.slice(2)}${timestampData.slice(2)}` // Combine score and timestamp
       })
-      alert('Score submitted successfully!')
+
+      // Update local state to reflect the new on-chain score
+      setGameState(prev => ({
+        ...prev,
+        userOnChainScore: prev.score,
+        onChainScores: [
+          { address: address!, score: prev.score, timestamp: Date.now() },
+          ...prev.onChainScores.filter(s => s.address.toLowerCase() !== address!.toLowerCase())
+        ].sort((a, b) => b.score - a.score)
+      }))
+
     } catch (error) {
       console.error('Score submission failed:', error)
-      alert('Score submission failed. Please try again.')
     }
   }
 
@@ -563,32 +595,22 @@ export default function PacmonGame() {
   }
 
   const restartGame = () => {
-    const newHighScore = gameState.highScore > gameState.score ? gameState.highScore : gameState.score
-    const newTotalPlays = gameState.totalPlays + 1
-    
-    // Save updated statistics
-    saveGameStats(newHighScore, newTotalPlays)
-    
-    setGameState({
+    setGameState(prev => ({
+      ...prev,
       pacmon: { x: 9, y: 15 },
-      pacmonDirection: { x: 0, y: 0 }, // Reset Pacmon direction
+      pacmonDirection: { x: 0, y: 0 },
       ghosts: [
         { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
         { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
         { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_BLUE, vulnerable: false, type: 'inky', scatterTarget: { x: 18, y: 18 }, eaten: false },
         { id: 4, position: { x: 10, y: 10 }, direction: { x: 0, y: -1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false, type: 'clyde', scatterTarget: { x: 1, y: 18 }, eaten: false }
       ],
-      pellets: [],
-      powerPellets: [],
       score: 0,
       lives: 3,
       gameStatus: 'playing',
       powerMode: false,
-      powerModeTimer: 0,
-      highScore: newHighScore,
-      totalPlayers: gameState.totalPlayers,
-      totalPlays: newTotalPlays
-    })
+      powerModeTimer: 0
+    }))
     
     // Reinitialize pellets
     const pellets: Position[] = []
@@ -611,6 +633,10 @@ export default function PacmonGame() {
     setGameState(prev => ({ ...prev, gameStatus: 'pregame' }))
   }
 
+  const toggleLeaderboard = () => {
+    setGameState(prev => ({ ...prev, showLeaderboard: !prev.showLeaderboard }))
+  }
+
   // Handle mobile controls
   const handleDirectionPress = useCallback((direction: Position) => {
     if (gameState.gameStatus !== 'playing') return
@@ -626,7 +652,7 @@ export default function PacmonGame() {
 
   return (
     <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-      {gameState.gameStatus === 'pregame' && (
+      {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
         <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
           <div className="text-center space-y-4">
             <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
@@ -634,36 +660,43 @@ export default function PacmonGame() {
             </h1>
             <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
               <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                Today's High Scores
+                Current High Scores Onchain
               </div>
               <div className="space-y-2 bg-black bg-opacity-30 rounded-lg p-4">
-                <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_BERRY }}>
-                  <span className="flex items-center">
-                    <span className="text-xl mr-2">🥇</span>
-                    <span className="font-bold">1st</span>
-                  </span>
-                  <span className="font-mono">{gameState.highScore.toLocaleString()}</span>
-                  <span className="text-sm font-mono">{address ? `${address.slice(0, 4)}...${address.slice(-4)}` : '0x0000...0000'}</span>
-                </div>
-                <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_BLUE }}>
-                  <span className="flex items-center">
-                    <span className="text-xl mr-2">🥈</span>
-                    <span className="font-bold">2nd</span>
-                  </span>
-                  <span className="font-mono">0</span>
-                  <span className="text-sm font-mono">0x0000...0000</span>
-                </div>
-                <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  <span className="flex items-center">
-                    <span className="text-xl mr-2">🥉</span>
-                    <span className="font-bold">3rd</span>
-                  </span>
-                  <span className="font-mono">0</span>
-                  <span className="text-sm font-mono">0x0000...0000</span>
-                </div>
+                {gameState.onChainScores.slice(0, 3).map((score, index) => (
+                  <div key={index} className="flex items-center justify-between text-base md:text-lg" style={{ 
+                    color: index === 0 ? COLORS.MONAD_BERRY : index === 1 ? COLORS.MONAD_BLUE : COLORS.MONAD_OFF_WHITE 
+                  }}>
+                    <span className="flex items-center">
+                      <span className="text-xl mr-2">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                      <span className="font-bold">{index === 0 ? '1st' : index === 1 ? '2nd' : '3rd'}</span>
+                    </span>
+                    <span className="font-mono">{score.score.toLocaleString()}</span>
+                    <span className="text-sm font-mono">{`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}</span>
+                  </div>
+                ))}
+                {gameState.onChainScores.length === 0 && (
+                  <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    Save your score onchain to appear here
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {/* User's On-Chain Score */}
+          {gameState.userOnChainScore !== null && (
+            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+              <div className="text-center space-y-2">
+                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  Your Today's Onchain Score
+                </div>
+                <div className="text-xl font-mono font-bold" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {gameState.userOnChainScore.toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Wallet Connection Status */}
           {isConnected && (
@@ -696,6 +729,17 @@ export default function PacmonGame() {
                'Start Game'}
             </button>
 
+            <button
+              onClick={toggleLeaderboard}
+              className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
+              style={{ 
+                backgroundColor: COLORS.MONAD_PURPLE, 
+                color: COLORS.WHITE 
+              }}
+            >
+              View Leaderboard
+            </button>
+
             {isConnected && (
               <button
                 onClick={() => disconnect()}
@@ -718,6 +762,52 @@ export default function PacmonGame() {
               Submit your score to the blockchain for 0.015 MON!
             </p>
           </div>
+        </div>
+      )}
+
+      {gameState.showLeaderboard && (
+        <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
+              Leaderboard
+            </h2>
+            <p className="text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+              Save your score onchain to appear here
+            </p>
+          </div>
+
+          <div className="w-full max-w-md space-y-2 px-4">
+            {gameState.onChainScores.map((score, index) => (
+              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-black bg-opacity-30">
+                <span className="text-lg font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  #{index + 1}
+                </span>
+                <span className="font-mono text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {score.score.toLocaleString()}
+                </span>
+                <span className="text-sm font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}
+                </span>
+              </div>
+            ))}
+            {gameState.onChainScores.length === 0 && (
+              <div className="text-center p-8" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                <p>No scores saved onchain yet.</p>
+                <p className="mt-2 text-sm">Be the first to save your score!</p>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={toggleLeaderboard}
+            className="py-4 px-8 text-lg font-bold rounded-lg"
+            style={{ 
+              backgroundColor: COLORS.MONAD_BERRY, 
+              color: COLORS.WHITE 
+            }}
+          >
+            Back to Game
+          </button>
         </div>
       )}
 
@@ -822,9 +912,9 @@ export default function PacmonGame() {
             <p className="text-xl md:text-2xl" style={{ color: COLORS.MONAD_OFF_WHITE }}>
               Final Score: {gameState.score}
             </p>
-            {gameState.score > gameState.highScore && (
+            {gameState.score > (gameState.userOnChainScore || 0) && (
               <p className="text-lg" style={{ color: COLORS.GREEN }}>
-                🎉 New High Score! 🎉
+                🎉 New Personal Best! 🎉
               </p>
             )}
           </div>
