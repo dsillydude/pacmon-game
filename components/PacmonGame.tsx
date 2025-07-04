@@ -88,11 +88,11 @@ class SoundManager {
 
   private loadSounds() {
     const soundFiles = {
-      pelletEat: '/sounds/pellet-eat.wav',
-      powerPellet: '/sounds/power-pellet.wav',
-      ghostEat: '/sounds/ghost-eat.wav',
-      death: '/sounds/death.wav',
-      gameOver: '/sounds/game-over.wav',
+      pelletEat: '/sounds/pellet-eat.mp3',
+      powerPellet: '/sounds/power-pellet.mp3',
+      ghostEat: '/sounds/ghost-eat.mp3',
+      death: '/sounds/death.mp3',
+      gameOver: '/sounds/game-over.mp3',
       backgroundMusic: '/sounds/playing-pac-man.mp3',
       arcadeSound: '/sounds/arcade-videogame-sound.mp3'
     }
@@ -107,7 +107,7 @@ class SoundManager {
     // Set background music to loop
     if (this.sounds.backgroundMusic) {
       this.sounds.backgroundMusic.loop = true
-      this.sounds.backgroundMusic.volume = 0.3
+      this.sounds.backgroundMusic.volume = 0.2
     }
   }
 
