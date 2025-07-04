@@ -860,7 +860,7 @@ export default function PacmonGame() {
                   <button
                     onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
                     onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                    className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
+                    className="w-28 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                     style={{ 
                       backgroundColor: COLORS.MONAD_PURPLE, 
                       color: COLORS.WHITE,
@@ -873,7 +873,7 @@ export default function PacmonGame() {
                   <button
                     onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
                     onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                    className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
+                    className="w-28 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                     style={{ 
                       backgroundColor: COLORS.MONAD_PURPLE, 
                       color: COLORS.WHITE,
