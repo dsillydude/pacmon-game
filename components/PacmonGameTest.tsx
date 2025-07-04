@@ -1,17 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useFrame } from '@/components/farcaster-provider'
-import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
-import { parseEther } from 'viem'
-import { monadTestnet } from 'viem/chains'
-import {
-  useAccount,
-  useConnect,
-  useDisconnect,
-  useSendTransaction,
-  useSwitchChain,
-} from 'wagmi'
 
 // Monad color palette
 const COLORS = {
@@ -88,14 +77,13 @@ const MAZE = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ]
 
-export default function PacmonGame() {
+export default function PacmonGameTest() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { isEthProviderAvailable } = useFrame()
-  const { isConnected, address, chainId } = useAccount()
-  const { disconnect } = useDisconnect()
-  const { data: hash, sendTransaction } = useSendTransaction()
-  const { switchChain } = useSwitchChain()
-  const { connect } = useConnect()
+  
+  // Mock wallet connection for testing
+  const [isConnected, setIsConnected] = useState(false)
+  const [address] = useState('0x1234...5678')
+  const [chainId] = useState(41454) // Monad testnet chain ID
   
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 9, y: 15 },
@@ -113,48 +101,10 @@ export default function PacmonGame() {
     gameStatus: 'pregame',
     powerMode: false,
     powerModeTimer: 0,
-    highScore: 0,
-    totalPlayers: 0,
-    totalPlays: 0
+    highScore: 1250,
+    totalPlayers: 42,
+    totalPlays: 156
   })
-
-  // Load game statistics from localStorage on component mount
-  useEffect(() => {
-    const loadGameStats = () => {
-      try {
-        const savedHighScore = localStorage.getItem('pacmon_high_score')
-        const savedTotalPlayers = localStorage.getItem('pacmon_total_players')
-        const savedTotalPlays = localStorage.getItem('pacmon_total_plays')
-        
-        setGameState(prev => ({
-          ...prev,
-          highScore: savedHighScore ? parseInt(savedHighScore) : 0,
-          totalPlayers: savedTotalPlayers ? parseInt(savedTotalPlayers) : 0,
-          totalPlays: savedTotalPlays ? parseInt(savedTotalPlays) : 0
-        }))
-      } catch (error) {
-        console.error('Error loading game stats:', error)
-      }
-    }
-    
-    loadGameStats()
-  }, [])
-
-  // Save game statistics to localStorage
-  const saveGameStats = (newHighScore: number, newTotalPlays: number) => {
-    try {
-      localStorage.setItem('pacmon_high_score', newHighScore.toString())
-      localStorage.setItem('pacmon_total_plays', newTotalPlays.toString())
-      
-      // Increment total players if this is a new player (simplified logic)
-      const currentPlayers = parseInt(localStorage.getItem('pacmon_total_players') || '0')
-      if (newTotalPlays === 1) {
-        localStorage.setItem('pacmon_total_players', (currentPlayers + 1).toString())
-      }
-    } catch (error) {
-      console.error('Error saving game stats:', error)
-    }
-  }
 
   // Initialize pellets and power pellets from maze
   useEffect(() => {
@@ -217,113 +167,27 @@ export default function PacmonGame() {
             newState.pacmonDirection = { x: 0, y: 0 }
           }
 
-          // Move ghosts
+          // Move ghosts (simplified for testing)
           newState.ghosts = newState.ghosts.map(ghost => {
-            if (ghost.eaten) {
-              // Eaten ghosts return to ghost house
-              if (ghost.position.x === 9 && ghost.position.y === 9) {
-                return { ...ghost, eaten: false, vulnerable: false }
-              }
-              // Simple path back to ghost house (can be improved)
-              const target = { x: 9, y: 9 }
-              const dx = target.x - ghost.position.x
-              const dy = target.y - ghost.position.y
-              let newDirection = { x: 0, y: 0 }
-
-              if (Math.abs(dx) > Math.abs(dy)) {
-                newDirection.x = dx > 0 ? 1 : -1
-              } else {
-                newDirection.y = dy > 0 ? 1 : -1
-              }
-              return { ...ghost, direction: newDirection, position: { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y } }
-            }
-
-            let targetTile: Position
-            if (newState.powerMode) {
-              // Frightened mode: random movement
-              const directions = [
-                { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
-              ]
-              const validDirections = directions.filter(dir => {
-                const testPos = {
-                  x: ghost.position.x + dir.x,
-                  y: ghost.position.y + dir.y
-                }
-                return testPos.x >= 0 && testPos.x < GRID_SIZE && 
-                       testPos.y >= 0 && testPos.y < GRID_SIZE && 
-                       MAZE[testPos.y][testPos.x] !== 1
-              })
-              const newDirection = validDirections[Math.floor(Math.random() * validDirections.length)]
-              targetTile = { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y }
-            } else {
-              // Chase/Scatter mode
-              switch (ghost.type) {
-                case 'blinky':
-                  targetTile = newState.pacmon
-                  break
-                case 'pinky':
-                  // 4 tiles in front of Pac-Man
-                  targetTile = {
-                    x: newState.pacmon.x + newState.pacmonDirection.x * 4,
-                    y: newState.pacmon.y + newState.pacmonDirection.y * 4
-                  }
-                  break
-                case 'inky':
-                  // Complex: depends on Pac-Man and Blinky
-                  const blinky = newState.ghosts.find(g => g.type === 'blinky')
-                  if (blinky) {
-                    const pacmanTwoAhead = {
-                      x: newState.pacmon.x + newState.pacmonDirection.x * 2,
-                      y: newState.pacmon.y + newState.pacmonDirection.y * 2
-                    }
-                    const vector = {
-                      x: pacmanTwoAhead.x - blinky.position.x,
-                      y: pacmanTwoAhead.y - blinky.position.y
-                    }
-                    targetTile = { x: blinky.position.x + vector.x * 2, y: blinky.position.y + vector.y * 2 }
-                  } else {
-                    targetTile = newState.pacmon // Fallback
-                  }
-                  break
-                case 'clyde':
-                  // Scatter if close to Pac-Man, else chase
-                  const distance = Math.sqrt(
-                    Math.pow(ghost.position.x - newState.pacmon.x, 2) +
-                    Math.pow(ghost.position.y - newState.pacmon.y, 2)
-                  )
-                  if (distance < 8) {
-                    targetTile = ghost.scatterTarget
-                  } else {
-                    targetTile = newState.pacmon
-                  }
-                  break
-                default:
-                  targetTile = newState.pacmon
-              }
-            }
-
-            // Ghost movement logic (shortest path to target, avoiding walls)
-            const possibleDirections = [
+            const directions = [
               { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
             ]
-            let bestDirection = ghost.direction
-            let minDistance = Infinity
-
-            possibleDirections.forEach(dir => {
-              const nextPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
-              if (nextPos.x >= 0 && nextPos.x < GRID_SIZE && nextPos.y >= 0 && nextPos.y < GRID_SIZE && MAZE[nextPos.y][nextPos.x] !== 1) {
-                const distance = Math.sqrt(
-                  Math.pow(nextPos.x - targetTile.x, 2) +
-                  Math.pow(nextPos.y - targetTile.y, 2)
-                )
-                if (distance < minDistance) {
-                  minDistance = distance
-                  bestDirection = dir
-                }
+            const validDirections = directions.filter(dir => {
+              const testPos = {
+                x: ghost.position.x + dir.x,
+                y: ghost.position.y + dir.y
               }
+              return testPos.x >= 0 && testPos.x < GRID_SIZE && 
+                     testPos.y >= 0 && testPos.y < GRID_SIZE && 
+                     MAZE[testPos.y][testPos.x] !== 1
             })
-
-            return { ...ghost, direction: bestDirection, position: { x: ghost.position.x + bestDirection.x, y: ghost.position.y + bestDirection.y }, vulnerable: newState.powerMode }
+            const newDirection = validDirections[Math.floor(Math.random() * validDirections.length)] || ghost.direction
+            return { 
+              ...ghost, 
+              direction: newDirection, 
+              position: { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y },
+              vulnerable: newState.powerMode
+            }
           })
           
           // Check ghost collisions
@@ -337,9 +201,8 @@ export default function PacmonGame() {
               } else if (!ghost.eaten) {
                 // Lose life
                 newState.lives -= 1
-                newState.pacmon = { x: 9, y: 15 } // Reset Pacmon position
-                newState.pacmonDirection = { x: 0, y: 0 } // Stop Pacmon
-                newState.ghosts = newState.ghosts.map(g => ({ ...g, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, vulnerable: false, eaten: false })) // Reset ghosts
+                newState.pacmon = { x: 9, y: 15 }
+                newState.pacmonDirection = { x: 0, y: 0 }
                 if (newState.lives <= 0) {
                   newState.gameStatus = 'postGame'
                 }
@@ -401,7 +264,6 @@ export default function PacmonGame() {
         return
     }
 
-    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
     const nextX = gameState.pacmon.x + newDirection.x
     const nextY = gameState.pacmon.y + newDirection.y
 
@@ -517,78 +379,39 @@ export default function PacmonGame() {
     })
   }, [gameState])
 
-  const handleWalletConnect = async () => {
-    if (!isConnected) {
-      if (isEthProviderAvailable) {
-        connect({ connector: farcasterFrame() })
-      }
-      return
-    }
-
-    if (chainId !== monadTestnet.id) {
-      switchChain({ chainId: monadTestnet.id })
-      return
-    }
-
-    // Start the game after wallet is connected and on correct chain
-    setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+  const handleWalletConnect = () => {
+    setIsConnected(true)
   }
 
-  const handleScoreSubmission = async () => {
-    if (!isConnected || chainId !== monadTestnet.id) {
-      alert('Please connect wallet and switch to Monad Testnet first')
-      return
-    }
-
-    try {
-      await sendTransaction({
-        to: '0x7f748f154B6D180D35fA12460C7E4C631e28A9d7', // Game treasury address
-        value: parseEther('0.015'),
-      })
-      alert('Score submitted successfully!')
-    } catch (error) {
-      console.error('Score submission failed:', error)
-      alert('Score submission failed. Please try again.')
-    }
+  const handleScoreSubmission = () => {
+    alert('Score submitted successfully! (Test mode)')
   }
 
   const startGame = () => {
     if (!isConnected) {
       handleWalletConnect()
-    } else if (chainId !== monadTestnet.id) {
-      switchChain({ chainId: monadTestnet.id })
     } else {
       setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
     }
   }
 
   const restartGame = () => {
-    const newHighScore = gameState.highScore > gameState.score ? gameState.highScore : gameState.score
-    const newTotalPlays = gameState.totalPlays + 1
-    
-    // Save updated statistics
-    saveGameStats(newHighScore, newTotalPlays)
-    
-    setGameState({
+    setGameState(prev => ({
+      ...prev,
       pacmon: { x: 9, y: 15 },
-      pacmonDirection: { x: 0, y: 0 }, // Reset Pacmon direction
+      pacmonDirection: { x: 0, y: 0 },
       ghosts: [
         { id: 1, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, color: COLORS.MONAD_BERRY, vulnerable: false, type: 'blinky', scatterTarget: { x: 18, y: 0 }, eaten: false },
         { id: 2, position: { x: 10, y: 9 }, direction: { x: -1, y: 0 }, color: COLORS.MONAD_PURPLE, vulnerable: false, type: 'pinky', scatterTarget: { x: 1, y: 0 }, eaten: false },
         { id: 3, position: { x: 9, y: 10 }, direction: { x: 0, y: 1 }, color: COLORS.MONAD_BLUE, vulnerable: false, type: 'inky', scatterTarget: { x: 18, y: 18 }, eaten: false },
         { id: 4, position: { x: 10, y: 10 }, direction: { x: 0, y: -1 }, color: COLORS.MONAD_OFF_WHITE, vulnerable: false, type: 'clyde', scatterTarget: { x: 1, y: 18 }, eaten: false }
       ],
-      pellets: [],
-      powerPellets: [],
       score: 0,
       lives: 3,
       gameStatus: 'playing',
       powerMode: false,
-      powerModeTimer: 0,
-      highScore: newHighScore,
-      totalPlayers: gameState.totalPlayers,
-      totalPlays: newTotalPlays
-    })
+      powerModeTimer: 0
+    }))
     
     // Reinitialize pellets
     const pellets: Position[] = []
@@ -615,7 +438,6 @@ export default function PacmonGame() {
   const handleDirectionPress = useCallback((direction: Position) => {
     if (gameState.gameStatus !== 'playing') return
 
-    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
     const nextX = gameState.pacmon.x + direction.x
     const nextY = gameState.pacmon.y + direction.y
 
@@ -650,16 +472,16 @@ export default function PacmonGame() {
                     <span className="text-xl mr-2">🥈</span>
                     <span className="font-bold">2nd</span>
                   </span>
-                  <span className="font-mono">0</span>
-                  <span className="text-sm font-mono">0x0000...0000</span>
+                  <span className="font-mono">890</span>
+                  <span className="text-sm font-mono">0x9876...4321</span>
                 </div>
                 <div className="flex items-center justify-between text-base md:text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
                   <span className="flex items-center">
                     <span className="text-xl mr-2">🥉</span>
                     <span className="font-bold">3rd</span>
                   </span>
-                  <span className="font-mono">0</span>
-                  <span className="text-sm font-mono">0x0000...0000</span>
+                  <span className="font-mono">650</span>
+                  <span className="text-sm font-mono">0xabcd...ef01</span>
                 </div>
               </div>
             </div>
@@ -676,7 +498,7 @@ export default function PacmonGame() {
                   {address?.slice(0, 6)}...{address?.slice(-4)}
                 </div>
                 <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
+                  Chain: Monad Testnet
                 </div>
               </div>
             </div>
@@ -691,14 +513,12 @@ export default function PacmonGame() {
                 color: COLORS.WHITE 
               }}
             >
-              {!isConnected ? 'Connect Wallet to Play' : 
-               chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
-               'Start Game'}
+              {!isConnected ? 'Connect Wallet to Play' : 'Start Game'}
             </button>
 
             {isConnected && (
               <button
-                onClick={() => disconnect()}
+                onClick={() => setIsConnected(false)}
                 className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
                 style={{ 
                   backgroundColor: 'transparent', 
@@ -739,7 +559,6 @@ export default function PacmonGame() {
           </div>
 
           <div className="flex flex-col h-full">
-            {/* Game Canvas Container - Takes up most of the space */}
             <div className="flex-1 flex items-start justify-center pt-4">
               <canvas
                 ref={canvasRef}
@@ -750,7 +569,6 @@ export default function PacmonGame() {
               />
             </div>
             
-            {/* Mobile Controls - Fixed at bottom with larger buttons */}
             <div className="flex justify-center pb-8 pt-4 md:hidden">
               <div className="flex flex-col items-center space-y-4">
                 <button
