@@ -87,13 +87,13 @@ class SoundManager {
   }
 
   private loadSounds() {
-    const soundFiles = {
-      pelletEat: '/sounds/pellet-eat.mp3',
-      powerPellet: '/sounds/power-pellet.mp3',
-      ghostEat: '/sounds/ghost-eat.mp3',
-      death: '/sounds/death.mp3',
-      gameOver: '/sounds/game-over.mp3',
-      backgroundMusic: '/sounds/playing-pac-man.mp3',
+    const soundFiles = {      pelletEat: 
+'/sounds/pellet-eat.mp3',      powerPellet: 
+'/sounds/power-pellet.mp3',      ghostEat: 
+'/sounds/ghost-eat.mp3',      death: 
+'/sounds/death.mp3',
+      gameOver: 
+'/sounds/game-over.mp3',      backgroundMusic: '/sounds/playing-pac-man.mp3',
       arcadeSound: '/sounds/arcade-videogame-sound.mp3'
     }
 
@@ -107,7 +107,7 @@ class SoundManager {
     // Set background music to loop
     if (this.sounds.backgroundMusic) {
       this.sounds.backgroundMusic.loop = true
-      this.sounds.backgroundMusic.volume = 0.2
+      this.sounds.backgroundMusic.volume = 0.3
     }
   }
 
@@ -187,6 +187,7 @@ export default function PacmonGame() {
   const { switchChain } = useSwitchChain()
   const { connect } = useConnect()
   const publicClient = usePublicClient()
+  const [scoreSaved, setScoreSaved] = useState(false)
   
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 9, y: 15 },
@@ -663,7 +664,7 @@ export default function PacmonGame() {
       // Send transaction to store score on-chain
       await sendTransaction({
         to: SCORE_CONTRACT_ADDRESS,
-        value: parseEther('0.015'),
+        value: parseEther("0.015"),
         data: `0x${scoreData.slice(2)}${timestampData.slice(2)}` // Combine score and timestamp
       })
 
@@ -676,9 +677,10 @@ export default function PacmonGame() {
           ...prev.onChainScores.filter(s => s.address.toLowerCase() !== address!.toLowerCase())
         ].sort((a, b) => b.score - a.score)
       }))
+      setScoreSaved(true) // Set scoreSaved to true on successful submission
 
     } catch (error) {
-      console.error('Score submission failed:', error)
+      console.error("Score submission failed:", error)
     }
   }
 
@@ -1044,13 +1046,14 @@ export default function PacmonGame() {
           <div className="w-full max-w-md space-y-4 px-4">
             <button
               onClick={handleScoreSubmission}
+              disabled={scoreSaved} // Disable button if score is saved
               className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
               style={{ 
-                backgroundColor: COLORS.MONAD_PURPLE, 
+                backgroundColor: scoreSaved ? COLORS.GREEN : COLORS.MONAD_PURPLE, // Change color if saved
                 color: COLORS.WHITE 
               }}
             >
-              Save Score Onchain [0.015 MON]
+              {scoreSaved ? 'Saved Successfully!' : 'Save Score Onchain [0.015 MON]'} // Change text if saved
             </button>
 
             <button
