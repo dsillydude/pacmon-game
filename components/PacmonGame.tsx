@@ -100,7 +100,7 @@ class SoundManager {
     Object.entries(soundFiles).forEach(([key, path]) => {
       const audio = new Audio(path)
       audio.preload = 'auto'
-      audio.volume = 0.4
+      audio.volume = 0.5
       this.sounds[key] = audio
     })
 
@@ -1053,7 +1053,7 @@ export default function PacmonGame() {
                 color: COLORS.WHITE 
               }}
             >
-              {scoreSaved ? 'Saved Successfully!' : 'Save Score Onchain [0.015 MON]'} // Change text if saved
+              {scoreSaved ? 'Saved Successfully!' : 'Save Score Onchain [0.015 MON]'}
             </button>
 
             <button
