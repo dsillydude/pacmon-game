@@ -100,7 +100,7 @@ class SoundManager {
     Object.entries(soundFiles).forEach(([key, path]) => {
       const audio = new Audio(path)
       audio.preload = 'auto'
-      audio.volume = 0.5
+      audio.volume = 0.4
       this.sounds[key] = audio
     })
 
