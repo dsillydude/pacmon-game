@@ -1,4 +1,4 @@
-# Pacmon - Monad Pacman Game
+# Pacmon - Pacman Inspired Monad Game
 
 A Pacman-style game with Monad theming, built as a Farcaster Mini App.
 
