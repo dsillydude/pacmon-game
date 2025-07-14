@@ -1,88 +1,281 @@
-export function generateMaze(level: number): number[][] {
-  const GRID_SIZE = 20;
-  let maze: number[][] = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(1)); // Initialize with walls
+import { getLevelSettings } from './difficultySettings';
 
-  // Simple maze generation for now, will improve based on difficulty
-  // For level 1, a very simple open maze
-  if (level === 1) {
-    for (let y = 1; y < GRID_SIZE - 1; y++) {
-      for (let x = 1; x < GRID_SIZE - 1; x++) {
-        maze[y][x] = 0; // Empty space
-      }
-    }
-    // Add some simple walls to make it a maze
-    maze[3][3] = 1;
-    maze[3][4] = 1;
-    maze[4][3] = 1;
-    maze[5][5] = 1;
-    maze[5][6] = 1;
-    maze[6][5] = 1;
+const WALL = 1;
+const PATH = 0;
+const DOT = 2;
+const POWER_PELLET = 3;
 
-  } else if (level === 2) {
-    // Slightly more complex maze
-    for (let y = 1; y < GRID_SIZE - 1; y++) {
-      for (let x = 1; x < GRID_SIZE - 1; x++) {
-        maze[y][x] = 0; // Empty space
-      }
-    }
-    // Add more walls
-    for (let i = 2; i < GRID_SIZE - 2; i += 2) {
-      maze[i][GRID_SIZE / 2 - 1] = 1;
-      maze[i][GRID_SIZE / 2] = 1;
-    }
-    maze[3][3] = 1;
-    maze[3][4] = 1;
-    maze[4][3] = 1;
-    maze[5][5] = 1;
-    maze[5][6] = 1;
-    maze[6][5] = 1;
-    maze[10][10] = 1;
-    maze[10][11] = 1;
-    maze[11][10] = 1;
+interface Maze {
+  grid: number[][];
+  size: number;
+  playerStart: { x: number; y: number };
+  ghostStarts: { x: number; y: number }[];
+  dots: number;
+}
 
+export function generateMaze(level: number): Maze {
+  const settings = getLevelSettings(level);
+  const size = settings.mazeSize;
+  const maze: Maze = {
+    grid: Array(size).fill(null).map(() => Array(size).fill(WALL)),
+    size,
+    playerStart: { x: 1, y: 1 },
+    ghostStarts: [],
+    dots: 0
+  };
+
+  // Generate paths (simpler for early levels)
+  if (level <= 2) {
+    generateSimpleMaze(maze, settings);
   } else {
-    // More complex mazes for higher levels (can implement a proper maze generation algorithm here)
-    // For now, just use the original maze for higher levels
-    const originalMaze = [
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-      [1,3,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,3,1],
-      [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-      [1,2,1,1,1,2,1,2,1,1,1,1,2,1,2,1,1,1,2,1],
-      [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
-      [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
-      [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
-      [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
-      [2,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,2],
-      [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
-      [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
-      [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
-      [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-      [1,2,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,2,1],
-      [1,3,2,2,1,2,2,2,2,2,2,2,2,2,2,1,2,2,3,1],
-      [1,1,1,2,1,2,1,2,1,1,1,1,2,1,2,1,2,1,1,1],
-      [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
-      [1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    ];
-    maze = originalMaze;
+    generateComplexMaze(maze, settings);
   }
 
-  // Populate pellets and power pellets
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
-      if (maze[y][x] === 0) {
-        // Randomly place pellets or power pellets
-        if (Math.random() < 0.05) { // 5% chance for power pellet
-          maze[y][x] = 3; // Power pellet
-        } else {
-          maze[y][x] = 2; // Pellet
-        }
-      }
-    }
+  // Place player and ghosts
+  maze.playerStart = findOpenSpace(maze) || { x: 1, y: 1 };
+  maze.ghostStarts = [];
+  for (let i = 0; i < settings.ghostCount; i++) {
+    const pos = findOpenSpace(maze, maze.playerStart);
+    if (pos) maze.ghostStarts.push(pos);
   }
 
   return maze;
 }
 
+function generateSimpleMaze(maze: Maze, settings: ReturnType<typeof getLevelSettings>) {
+  // Simple maze with clear paths
+  for (let y = 1; y < maze.size - 1; y += 2) {
+    for (let x = 1; x < maze.size - 1; x += 2) {
+      maze.grid[y][x] = PATH;
+      
+      // Place dots
+      if (Math.random() > 0.3 && maze.dots < settings.dots) {
+        maze.grid[y][x] = DOT;
+        maze.dots++;
+      }
+      
+      // Connect horizontally
+      if (x + 1 < maze.size - 1) {
+        maze.grid[y][x + 1] = PATH;
+        if (Math.random() > 0.3 && maze.dots < settings.dots) {
+          maze.grid[y][x + 1] = DOT;
+          maze.dots++;
+        }
+      }
+    }
+  }
 
+  // Place power pellets
+  for (let i = 0; i < settings.powerPellets; i++) {
+    const pos = findOpenSpace(maze);
+    if (pos) {
+      maze.grid[pos.y][pos.x] = POWER_PELLET;
+    }
+  }
+}
+
+function generateComplexMaze(maze: Maze, settings: ReturnType<typeof getLevelSettings>) {
+  // More complex maze generation for higher levels
+  const frontier: {x: number, y: number}[] = [];
+  const start = { x: 1, y: 1 };
+  maze.grid[start.y][start.x] = PATH;
+  frontier.push(...getNeighbors(start, maze));
+
+  while (frontier.length > 0 && maze.dots < settings.dots * 1.5) {
+    const randomIndex = Math.floor(Math.random() * frontier.length);
+    const cell = frontier.splice(randomIndex, 1)[0];
+    const neighbors = getNeighbors(cell, maze, 2).filter(n => maze.grid[n.y][n.x] === PATH);
+    
+    if (neighbors.length > 0) {
+      const neighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+      const between = {
+        x: cell.x + Math.sign(neighbor.x - cell.x),
+        y: cell.y + Math.sign(neighbor.y - cell.y)
+      };
+      maze.grid[cell.y][cell.x] = PATH;
+      maze.grid[between.y][between.x] = PATH;
+      
+      // Place dots with higher probability
+      if (Math.random() > 0.2 && maze.dots < settings.dots) {
+        maze.grid[cell.y][cell.x] = DOT;
+        maze.dots++;
+      }
+    }
+    
+    frontier.push(...getNeighbors(cell, maze).filter(n => maze.grid[n.y][n.x] === WALL));
+  }
+
+  // Place power pellets
+  for (let i = 0; i < settings.powerPellets; i++) {
+    const pos = findOpenSpace(maze);
+    if (pos) {
+      maze.grid[pos.y][pos.x] = POWER_PELLET;
+    }
+  }
+}
+
+function getNeighbors(pos: {x: number, y: number}, maze: Maze, distance = 1) {
+  const neighbors: {x: number, y: number}[] = [];
+  if (pos.x - distance >= 0) neighbors.push({ x: pos.x - distance, y: pos.y });
+  if (pos.x + distance < maze.size) neighbors.push({ x: pos.x + distance, y: pos.y });
+  if (pos.y - distance >= 0) neighbors.push({ x: pos.x, y: pos.y - distance });
+  if (pos.y + distance < maze.size) neighbors.push({ x: pos.x, y: pos.y + distance });
+  return neighbors;
+}
+
+function findOpenSpace(maze: Maze, exclude: {x: number, y: number} | null = null): {x: number, y: number} | null {
+  let attempts = 0;
+  let pos: {x: number, y: number};
+  do {
+    pos = {
+      x: Math.floor(Math.random() * (maze.size - 2)) + 1,
+      y: Math.floor(Math.random() * (maze.size - 2)) + 1
+    };
+    attempts++;
+  } while (
+    (maze.grid[pos.y][pos.x] !== PATH ||
+    (exclude && pos.x === exclude.x && pos.y === exclude.y)) &&
+    attempts < 100
+  );
+  return attempts < 100 ? pos : null;
+}import { getLevelSettings } from './difficultySettings';
+
+const WALL = 1;
+const PATH = 0;
+const DOT = 2;
+const POWER_PELLET = 3;
+
+interface Maze {
+  grid: number[][];
+  size: number;
+  playerStart: { x: number; y: number };
+  ghostStarts: { x: number; y: number }[];
+  dots: number;
+}
+
+export function generateMaze(level: number): Maze {
+  const settings = getLevelSettings(level);
+  const size = settings.mazeSize;
+  const maze: Maze = {
+    grid: Array(size).fill(null).map(() => Array(size).fill(WALL)),
+    size,
+    playerStart: { x: 1, y: 1 },
+    ghostStarts: [],
+    dots: 0
+  };
+
+  // Generate paths (simpler for early levels)
+  if (level <= 2) {
+    generateSimpleMaze(maze, settings);
+  } else {
+    generateComplexMaze(maze, settings);
+  }
+
+  // Place player and ghosts
+  maze.playerStart = findOpenSpace(maze) || { x: 1, y: 1 };
+  maze.ghostStarts = [];
+  for (let i = 0; i < settings.ghostCount; i++) {
+    const pos = findOpenSpace(maze, maze.playerStart);
+    if (pos) maze.ghostStarts.push(pos);
+  }
+
+  return maze;
+}
+
+function generateSimpleMaze(maze: Maze, settings: ReturnType<typeof getLevelSettings>) {
+  // Simple maze with clear paths
+  for (let y = 1; y < maze.size - 1; y += 2) {
+    for (let x = 1; x < maze.size - 1; x += 2) {
+      maze.grid[y][x] = PATH;
+      
+      // Place dots
+      if (Math.random() > 0.3 && maze.dots < settings.dots) {
+        maze.grid[y][x] = DOT;
+        maze.dots++;
+      }
+      
+      // Connect horizontally
+      if (x + 1 < maze.size - 1) {
+        maze.grid[y][x + 1] = PATH;
+        if (Math.random() > 0.3 && maze.dots < settings.dots) {
+          maze.grid[y][x + 1] = DOT;
+          maze.dots++;
+        }
+      }
+    }
+  }
+
+  // Place power pellets
+  for (let i = 0; i < settings.powerPellets; i++) {
+    const pos = findOpenSpace(maze);
+    if (pos) {
+      maze.grid[pos.y][pos.x] = POWER_PELLET;
+    }
+  }
+}
+
+function generateComplexMaze(maze: Maze, settings: ReturnType<typeof getLevelSettings>) {
+  // More complex maze generation for higher levels
+  const frontier: {x: number, y: number}[] = [];
+  const start = { x: 1, y: 1 };
+  maze.grid[start.y][start.x] = PATH;
+  frontier.push(...getNeighbors(start, maze));
+
+  while (frontier.length > 0 && maze.dots < settings.dots * 1.5) {
+    const randomIndex = Math.floor(Math.random() * frontier.length);
+    const cell = frontier.splice(randomIndex, 1)[0];
+    const neighbors = getNeighbors(cell, maze, 2).filter(n => maze.grid[n.y][n.x] === PATH);
+    
+    if (neighbors.length > 0) {
+      const neighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+      const between = {
+        x: cell.x + Math.sign(neighbor.x - cell.x),
+        y: cell.y + Math.sign(neighbor.y - cell.y)
+      };
+      maze.grid[cell.y][cell.x] = PATH;
+      maze.grid[between.y][between.x] = PATH;
+      
+      // Place dots with higher probability
+      if (Math.random() > 0.2 && maze.dots < settings.dots) {
+        maze.grid[cell.y][cell.x] = DOT;
+        maze.dots++;
+      }
+    }
+    
+    frontier.push(...getNeighbors(cell, maze).filter(n => maze.grid[n.y][n.x] === WALL));
+  }
+
+  // Place power pellets
+  for (let i = 0; i < settings.powerPellets; i++) {
+    const pos = findOpenSpace(maze);
+    if (pos) {
+      maze.grid[pos.y][pos.x] = POWER_PELLET;
+    }
+  }
+}
+
+function getNeighbors(pos: {x: number, y: number}, maze: Maze, distance = 1) {
+  const neighbors: {x: number, y: number}[] = [];
+  if (pos.x - distance >= 0) neighbors.push({ x: pos.x - distance, y: pos.y });
+  if (pos.x + distance < maze.size) neighbors.push({ x: pos.x + distance, y: pos.y });
+  if (pos.y - distance >= 0) neighbors.push({ x: pos.x, y: pos.y - distance });
+  if (pos.y + distance < maze.size) neighbors.push({ x: pos.x, y: pos.y + distance });
+  return neighbors;
+}
+
+function findOpenSpace(maze: Maze, exclude: {x: number, y: number} | null = null): {x: number, y: number} | null {
+  let attempts = 0;
+  let pos: {x: number, y: number};
+  do {
+    pos = {
+      x: Math.floor(Math.random() * (maze.size - 2)) + 1,
+      y: Math.floor(Math.random() * (maze.size - 2)) + 1
+    };
+    attempts++;
+  } while (
+    (maze.grid[pos.y][pos.x] !== PATH ||
+    (exclude && pos.x === exclude.x && pos.y === exclude.y)) &&
+    attempts < 100
+  );
+  return attempts < 100 ? pos : null;
+}
