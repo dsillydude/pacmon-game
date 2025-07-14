@@ -4,7 +4,7 @@ import { FrameButton, FrameContainer, FrameImage } from 'frames.js/next/server';
 import { NextRequest } from 'next/server';
 import { generateMaze } from '../lib/mazeGenerator';
 import { getLevelSettings } from '../lib/difficultySettings';
-import { ... } from 'frames.js/next/server';
+
 
 // Enhanced type definitions
 interface Position {
