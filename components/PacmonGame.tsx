@@ -395,7 +395,7 @@ export default function PacmonGame() {
 
             possibleDirections.forEach(dir => {
               const nextPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
-              if (nextPos.x >= 0 && nextPos.x < GRID_SIZE && nextPos.y >= 0 && nextPos.y < GRID_SIZE && MAZE[nextPos.y][nextPos.x] !== 1) {
+              if (nextPos.x >= 0 && nextPos.x < GRID_SIZE && nextPos.y >= 0 && nextPos.y < GRID_SIZE && currentMaze[nextPos.y][nextPos.x] !== 1) {
                 const distance = Math.sqrt(
                   Math.pow(nextPos.x - targetTile.x, 2) +
                   Math.pow(nextPos.y - targetTile.y, 2)
@@ -463,7 +463,7 @@ export default function PacmonGame() {
     return () => clearInterval(gameLoop)
   }, [gameState.gameStatus])
 
-  // Handle keyboard input
+  // Handle keyboard input - FIXED VERSION
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return
 
@@ -500,7 +500,9 @@ export default function PacmonGame() {
     const nextY = gameState.pacmon.y + newDirection.y
 
     if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && currentMaze[nextY][nextX] !== 1) {
-  }, [gameState.pacmon, gameState.gameStatus])
+      setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
+    }
+  }, [gameState.pacmon, gameState.gameStatus, currentMaze])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress)
@@ -608,6 +610,19 @@ export default function PacmonGame() {
       )
     })
   }, [gameState])
+
+  // Handle mobile controls - FIXED VERSION
+  const handleDirectionPress = useCallback((direction: Position) => {
+    if (gameState.gameStatus !== 'playing') return
+
+    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
+    const nextX = gameState.pacmon.x + direction.x
+    const nextY = gameState.pacmon.y + direction.y
+
+    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && currentMaze[nextY][nextX] !== 1) {
+      setGameState(prev => ({ ...prev, pacmonDirection: direction }))
+    }
+  }, [gameState.pacmon, gameState.gameStatus, currentMaze])
 
   const handleWalletConnect = async () => {
     if (!isConnected) {
@@ -727,18 +742,10 @@ export default function PacmonGame() {
     return soundsEnabled
   }
 
-  // Handle mobile controls
-  const handleDirectionPress = useCallback((direction: Position) => {
-    if (gameState.gameStatus !== 'playing') return
-
-    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
-    const nextX = gameState.pacmon.x + direction.x
-    const nextY = gameState.pacmon.y + direction.y
-
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && currentMaze[nextY][nextX] !== 1) {
-      setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
-    }
-  }, [gameState.pacmon, gameState.gameStatus])
+  // Generate maze when level changes
+  useEffect(() => {
+    setCurrentMaze(generateMaze(level))
+  }, [level])
 
   return (
     <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
@@ -829,8 +836,6 @@ export default function PacmonGame() {
             >
               View Leaderboard
             </button>
-
-
 
             {isConnected && (
               <button
@@ -1066,12 +1071,3 @@ export default function PacmonGame() {
     </div>
   )
 }
-
-
-
-  // Generate maze when level changes
-  useEffect(() => {
-    setCurrentMaze(generateMaze(level))
-  }, [level])
-
-
