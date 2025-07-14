@@ -153,29 +153,7 @@ class SoundManager {
   }
 }
 
-// Simple maze layout (1 = wall, 0 = empty, 2 = pellet, 3 = power pellet)
-const MAZE = [
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-  [1,3,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,3,1],
-  [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-  [1,2,1,1,1,2,1,2,1,1,1,1,2,1,2,1,1,1,2,1],
-  [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
-  [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
-  [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
-  [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
-  [2,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,2],
-  [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
-  [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
-  [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
-  [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-  [1,2,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,2,1],
-  [1,3,2,2,1,2,2,2,2,2,2,2,2,2,2,1,2,2,3,1],
-  [1,1,1,2,1,2,1,2,1,1,1,1,2,1,2,1,2,1,1,1],
-  [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
-  [1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-]
+import { generateMaze } from "@/lib/mazeGenerator"
 
 export default function PacmonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -187,8 +165,8 @@ export default function PacmonGame() {
   const { switchChain } = useSwitchChain()
   const { connect } = useConnect()
   const publicClient = usePublicClient()
-  const [scoreSaved, setScoreSaved] = useState(false)
-  
+  const [level, setLevel] = useState(1)
+  const [currentMaze, setCurrentMaze] = useState<number[][]>([])
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 9, y: 15 },
     pacmonDirection: { x: 0, y: 0 },
@@ -261,18 +239,20 @@ export default function PacmonGame() {
     const pellets: Position[] = []
     const powerPellets: Position[] = []
     
+    if (currentMaze.length === 0) return; // Wait for maze to be generated
+
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
-        if (MAZE[y][x] === 2) {
+        if (currentMaze[y][x] === 2) {
           pellets.push({ x, y })
-        } else if (MAZE[y][x] === 3) {
+        } else if (currentMaze[y][x] === 3) {
           powerPellets.push({ x, y })
         }
       }
     }
     
     setGameState(prev => ({ ...prev, pellets, powerPellets }))
-  }, [])
+  }, [currentMaze])
 
   // Game loop
   useEffect(() => {
@@ -290,7 +270,7 @@ export default function PacmonGame() {
           // Check for wall collision
           if (newPacmonPos.x >= 0 && newPacmonPos.x < GRID_SIZE &&
               newPacmonPos.y >= 0 && newPacmonPos.y < GRID_SIZE &&
-              MAZE[newPacmonPos.y][newPacmonPos.x] !== 1) {
+              currentMaze[newPacmonPos.y][newPacmonPos.x] !== 1) {
             newState.pacmon = newPacmonPos
 
             // Check pellet collection
@@ -355,7 +335,7 @@ export default function PacmonGame() {
                 }
                 return testPos.x >= 0 && testPos.x < GRID_SIZE && 
                        testPos.y >= 0 && testPos.y < GRID_SIZE && 
-                       MAZE[testPos.y][testPos.x] !== 1
+                       currentMaze[testPos.y][testPos.x] !== 1
               })
               const newDirection = validDirections[Math.floor(Math.random() * validDirections.length)]
               targetTile = { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y }
@@ -519,9 +499,7 @@ export default function PacmonGame() {
     const nextX = gameState.pacmon.x + newDirection.x
     const nextY = gameState.pacmon.y + newDirection.y
 
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && MAZE[nextY][nextX] !== 1) {
-      setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
-    }
+    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && currentMaze[nextY][nextX] !== 1) {
   }, [gameState.pacmon, gameState.gameStatus])
 
   useEffect(() => {
@@ -545,7 +523,7 @@ export default function PacmonGame() {
     ctx.fillStyle = COLORS.MONAD_BLUE
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
-        if (MAZE[y][x] === 1) {
+        if (currentMaze[y][x] === 1) {
           ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
         }
       }
@@ -720,9 +698,9 @@ export default function PacmonGame() {
     
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
-        if (MAZE[y][x] === 2) {
+        if (currentMaze[y][x] === 2) {
           pellets.push({ x, y })
-        } else if (MAZE[y][x] === 3) {
+        } else if (currentMaze[y][x] === 3) {
           powerPellets.push({ x, y })
         }
       }
@@ -757,8 +735,8 @@ export default function PacmonGame() {
     const nextX = gameState.pacmon.x + direction.x
     const nextY = gameState.pacmon.y + direction.y
 
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && MAZE[nextY][nextX] !== 1) {
-      setGameState(prev => ({ ...prev, pacmonDirection: direction }))
+    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && currentMaze[nextY][nextX] !== 1) {
+      setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
     }
   }, [gameState.pacmon, gameState.gameStatus])
 
@@ -1088,4 +1066,12 @@ export default function PacmonGame() {
     </div>
   )
 }
+
+
+
+  // Generate maze when level changes
+  useEffect(() => {
+    setCurrentMaze(generateMaze(level))
+  }, [level])
+
 
