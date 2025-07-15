@@ -54,7 +54,7 @@ interface Ghost {
   direction: Position
   color: string
   vulnerable: boolean
-  type: 'blinky' | 'pinky' | 'inky' | 'clyde' | 'sue' | 'funky'
+  type: 'blinky' | 'pinky' | 'inky' | 'clyde' | 'funky'
   scatterTarget: Position
   eaten: boolean
   speed: number
@@ -499,22 +499,7 @@ export default function PacmonGame() {
     ]
 
     // Add more ghosts for higher levels
-    if (level >= 3) {
-      baseGhosts.push({
-        id: 5, 
-        position: { x: 8, y: 9 }, 
-        direction: { x: 1, y: 0 }, 
-        lastDirection: { x: 1, y: 0 },
-        color: COLORS.ORANGE, 
-        vulnerable: false, 
-        type: 'sue' as const, 
-        scatterTarget: { x: 0, y: 9 }, 
-        eaten: false, 
-        speed: 1.2, 
-        mode: 'chase' as const, 
-        modeTimer: 0
-      })
-    }
+    
 
     if (level >= 5) {
       baseGhosts.push({
@@ -645,17 +630,7 @@ export default function PacmonGame() {
         )
         return distance < 8 ? ghost.scatterTarget : pacmon
 
-      case 'sue':
-        // Patrol behavior - targets corners
-        const corners = [
-          { x: 1, y: 1 }, { x: 18, y: 1 }, { x: 1, y: 18 }, { x: 18, y: 18 }
-        ]
-        const nearestCorner = corners.reduce((nearest, corner) => {
-          const dist = Math.abs(corner.x - pacmon.x) + Math.abs(corner.y - pacmon.y)
-          const nearestDist = Math.abs(nearest.x - pacmon.x) + Math.abs(nearest.y - pacmon.y)
-          return dist < nearestDist ? corner : nearest
-        })
-        return nearestCorner
+    
 
       case 'funky':
         // Unpredictable behavior - sometimes chase, sometimes random
