@@ -112,7 +112,7 @@ interface GameState {
 }
 
 
-// Enhanced Sound Manager Class with more sound effects
+// Enhanced Sound Manager Class 
 class SoundManager {
   private sounds: { [key: string]: HTMLAudioElement } = {}
   private soundsEnabled: boolean = true
@@ -646,7 +646,7 @@ export default function PacmonGame() {
         return distance < 8 ? ghost.scatterTarget : pacmon
 
       case 'sue':
-        // Patrol behavior - targets corners
+        // Patrol behavior - the corners
         const corners = [
           { x: 1, y: 1 }, { x: 18, y: 1 }, { x: 1, y: 18 }, { x: 18, y: 18 }
         ]
