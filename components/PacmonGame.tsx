@@ -48,13 +48,16 @@ interface Position {
   y: number
 }
 
+// Add this before the Ghost interface
+type GhostType = 'blinky' | 'pinky' | 'inky' | 'clyde' | 'sue' | 'funky'
+
 interface Ghost {
   id: number
   position: Position
   direction: Position
   color: string
   vulnerable: boolean
-  type: 'blinky' | 'pinky' | 'inky' | 'clyde' | 'sue' | 'funky'
+  type: GhostType  // Use the type alias instead
   scatterTarget: Position
   eaten: boolean
   speed: number
@@ -62,6 +65,8 @@ interface Ghost {
   modeTimer: number
   lastDirection: Position
 }
+
+
 
 interface PowerUp {
   position: Position
