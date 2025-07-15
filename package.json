@@ -1,25 +1,13 @@
 {
-  "name": "pacmon-enhanced-game",
-  "version": "2.0.0",
-  "description": "Advanced Pacman game with 10 levels, enhanced AI, power-ups, and blockchain integration",
+  "name": "pacmon-game",
   "license": "MIT",
+  "version": "1.0.0",
   "private": true,
-  "keywords": [
-    "pacman",
-    "game",
-    "farcaster",
-    "blockchain",
-    "monad",
-    "progressive-difficulty",
-    "enhanced-ai",
-    "power-ups"
-  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "lint": "next lint"
   },
   "dependencies": {
     "@farcaster/auth-client": "^0.6.0",
