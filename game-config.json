@@ -1,0 +1,81 @@
+{
+  "gameSettings": {
+    "maxLevels": 10,
+    "baseGameSpeed": 200,
+    "minGameSpeed": 80,
+    "gridSize": 20,
+    "cellSize": 20
+  },
+  "scoring": {
+    "pellet": 10,
+    "powerPellet": 50,
+    "ghostBase": 200,
+    "powerUpBase": 100,
+    "comboMultiplierMax": 5,
+    "perfectLevelMultiplier": 1000
+  },
+  "powerUps": {
+    "speed": {
+      "duration": 80,
+      "color": "#FFFF00",
+      "effect": "Increases movement speed"
+    },
+    "freeze": {
+      "duration": 60,
+      "color": "#00FFFF",
+      "effect": "Freezes all ghosts"
+    },
+    "double": {
+      "duration": 100,
+      "color": "#00FF00",
+      "effect": "Doubles all points"
+    },
+    "shield": {
+      "duration": 80,
+      "color": "#FFA500",
+      "effect": "Protection from ghosts"
+    },
+    "bonus": {
+      "color": "#FF0000",
+      "effect": "Instant large point bonus"
+    },
+    "life": {
+      "color": "#836EF9",
+      "effect": "Grants extra life"
+    }
+  },
+  "ghosts": {
+    "blinky": {
+      "color": "#A0055D",
+      "behavior": "Direct aggressive chase",
+      "speed": 1.0
+    },
+    "pinky": {
+      "color": "#836EF9",
+      "behavior": "Ambush 4 tiles ahead",
+      "speed": 1.0
+    },
+    "inky": {
+      "color": "#200052",
+      "behavior": "Complex behavior based on Blinky",
+      "speed": 1.0
+    },
+    "clyde": {
+      "color": "#FBFAF9",
+      "behavior": "Scatter when close, chase when far",
+      "speed": 1.0
+    },
+    "sue": {
+      "color": "#FFA500",
+      "behavior": "Patrol corners",
+      "speed": 1.2,
+      "unlockedAtLevel": 3
+    },
+    "funky": {
+      "color": "#00FF00",
+      "behavior": "Unpredictable movement",
+      "speed": 1.5,
+      "unlockedAtLevel": 5
+    }
+  }
+}
