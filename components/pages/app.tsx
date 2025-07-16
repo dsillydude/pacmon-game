@@ -1,6 +1,6 @@
 'use client'
 
-import PacmonGameImproved from '@/components/PacmonGameImproved'
+import PacmonGame from '@/components/PacmonGame'
 import { useFrame } from '@/components/farcaster-provider'
 import { SafeAreaContainer } from '@/components/safe-area-container'
 
@@ -19,7 +19,7 @@ export default function Home() {
 
   return (
     <SafeAreaContainer insets={context?.client.safeAreaInsets}>
-      <PacmonGameImproved />
+      <PacmonGame />
     </SafeAreaContainer>
   )
 }
