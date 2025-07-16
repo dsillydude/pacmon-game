@@ -1190,7 +1190,7 @@ export default function PacmonGame() {
             
             {isConnected && (
               <button
-                onClick={disconnect}
+                onClick={() => disconnect()}
                 className="w-full py-2 px-4 rounded-lg text-sm font-semibold transition-all duration-200"
                 style={{ 
                   backgroundColor: 'rgba(131, 110, 249, 0.1)', 
