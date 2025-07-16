@@ -298,7 +298,8 @@ const MAZE_LAYOUTS = {
 // Function to get maze for current level
 const getMazeForLevel = (level: number) => {
   const mazeKey = Math.min(level, 3) // Use maze 3 for levels 4 and above
-  return MAZE_LAYOUTS[mazeKey] || MAZE_LAYOUTS[1]
+  return MAZE_LAYOUTS[mazeKey as keyof typeof MAZE_LAYOUTS] || MAZE_LAYOUTS[1]
+
 }
 
 export default function PacmonGame() {
