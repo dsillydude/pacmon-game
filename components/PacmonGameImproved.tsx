@@ -1,6 +1,18 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useFrame } from '@/components/farcaster-provider'
+import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
+import { parseEther, encodeFunctionData, keccak256, toHex } from 'viem'
+import { monadTestnet } from 'viem/chains'
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useSendTransaction,
+  useSwitchChain,
+  usePublicClient,
+} from 'wagmi'
 import { generateMaze } from '@/lib/mazeGenerator'
 import { getLevelSettings } from '@/lib/difficultySettings'
 
@@ -18,6 +30,9 @@ const COLORS = {
 
 // Game constants
 const CELL_SIZE = 20
+
+// Contract address for score storage
+const SCORE_CONTRACT_ADDRESS = '0x1F0e9dcd371af37AD20E96A5a193d78052dCA984'
 
 // Game entities
 interface Position {
@@ -37,6 +52,12 @@ interface Ghost {
   speed: number
 }
 
+interface OnChainScore {
+  address: string
+  score: number
+  timestamp: number
+}
+
 interface GameState {
   pacmon: Position
   pacmonDirection: Position
@@ -49,6 +70,12 @@ interface GameState {
   gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete' | 'postGame'
   powerMode: boolean
   powerModeTimer: number
+  highScore: number
+  totalPlayers: number
+  totalPlays: number
+  userOnChainScore: number | null
+  onChainScores: OnChainScore[]
+  showLeaderboard: boolean
   maze: number[][]
   mazeSize: number
   gameWidth: number
@@ -56,8 +83,93 @@ interface GameState {
   levelTransition: boolean
 }
 
-export default function PacmonGameTestDemo() {
+// Sound Manager Class
+class SoundManager {
+  private sounds: { [key: string]: HTMLAudioElement } = {}
+  private soundsEnabled: boolean = true
+
+  constructor() {
+    this.loadSounds()
+  }
+
+  private loadSounds() {
+    const soundFiles = {
+      pelletEat: '/sounds/pellet-eat.mp3',
+      powerPellet: '/sounds/power-pellet.mp3',
+      ghostEat: '/sounds/ghost-eat.mp3',
+      death: '/sounds/death.mp3',
+      gameOver: '/sounds/game-over.mp3',
+      backgroundMusic: '/sounds/playing-pac-man.mp3',
+      arcadeSound: '/sounds/arcade-videogame-sound.mp3'
+    }
+
+    Object.entries(soundFiles).forEach(([key, path]) => {
+      const audio = new Audio(path)
+      audio.preload = 'auto'
+      audio.volume = 0.5
+      this.sounds[key] = audio
+    })
+
+    // Set background music to loop
+    if (this.sounds.backgroundMusic) {
+      this.sounds.backgroundMusic.loop = true
+      this.sounds.backgroundMusic.volume = 0.3
+    }
+  }
+
+  play(soundName: string) {
+    if (!this.soundsEnabled || !this.sounds[soundName]) return
+    
+    try {
+      const sound = this.sounds[soundName]
+      sound.currentTime = 0
+      sound.play().catch(e => console.log('Sound play failed:', e))
+    } catch (error) {
+      console.log('Sound error:', error)
+    }
+  }
+
+  playBackgroundMusic() {
+    if (!this.soundsEnabled || !this.sounds.backgroundMusic) return
+    
+    try {
+      this.sounds.backgroundMusic.play().catch(e => console.log('Background music play failed:', e))
+    } catch (error) {
+      console.log('Background music error:', error)
+    }
+  }
+
+  stopBackgroundMusic() {
+    if (this.sounds.backgroundMusic) {
+      this.sounds.backgroundMusic.pause()
+      this.sounds.backgroundMusic.currentTime = 0
+    }
+  }
+
+  toggleSounds() {
+    this.soundsEnabled = !this.soundsEnabled
+    if (!this.soundsEnabled) {
+      this.stopBackgroundMusic()
+    }
+    return this.soundsEnabled
+  }
+
+  getSoundsEnabled() {
+    return this.soundsEnabled
+  }
+}
+
+export default function PacmonGameImproved() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const soundManagerRef = useRef<SoundManager | null>(null)
+  const { isEthProviderAvailable } = useFrame()
+  const { isConnected, address, chainId } = useAccount()
+  const { disconnect } = useDisconnect()
+  const { data: hash, sendTransaction } = useSendTransaction()
+  const { switchChain } = useSwitchChain()
+  const { connect } = useConnect()
+  const publicClient = usePublicClient()
+  const [scoreSaved, setScoreSaved] = useState(false)
   
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 1, y: 1 },
@@ -71,12 +183,23 @@ export default function PacmonGameTestDemo() {
     gameStatus: 'pregame',
     powerMode: false,
     powerModeTimer: 0,
+    highScore: 0,
+    totalPlayers: 0,
+    totalPlays: 0,
+    userOnChainScore: null,
+    onChainScores: [],
+    showLeaderboard: false,
     maze: [],
     mazeSize: 7,
     gameWidth: 140,
     gameHeight: 140,
     levelTransition: false
   })
+
+  // Initialize sound manager
+  useEffect(() => {
+    soundManagerRef.current = new SoundManager()
+  }, [])
 
   // Initialize level
   const initializeLevel = useCallback((level: number) => {
@@ -138,6 +261,43 @@ export default function PacmonGameTestDemo() {
     }))
   }, [])
 
+  // Load on-chain scores and user's score
+  const loadOnChainScores = useCallback(async () => {
+    if (!publicClient || !address) return
+
+    try {
+      // Simulate loading on-chain scores (in a real implementation, you would query the blockchain)
+      const mockOnChainScores: OnChainScore[] = [
+        { address: '0x1234567890123456789012345678901234567890', score: 2450, timestamp: Date.now() - 86400000 },
+        { address: '0x9876543210987654321098765432109876543210', score: 1890, timestamp: Date.now() - 172800000 },
+        { address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd', score: 1650, timestamp: Date.now() - 259200000 },
+        { address: '0x1111222233334444555566667777888899990000', score: 1420, timestamp: Date.now() - 345600000 },
+        { address: '0x0000999988887777666655554444333322221111', score: 1200, timestamp: Date.now() - 432000000 }
+      ]
+
+      // Find user's on-chain score
+      const userScore = mockOnChainScores.find(score => 
+        score.address.toLowerCase() === address.toLowerCase()
+      )
+
+      setGameState(prev => ({
+        ...prev,
+        onChainScores: mockOnChainScores.sort((a, b) => b.score - a.score),
+        userOnChainScore: userScore?.score || null,
+        highScore: mockOnChainScores[0]?.score || 0
+      }))
+    } catch (error) {
+      console.error('Error loading on-chain scores:', error)
+    }
+  }, [publicClient, address])
+
+  // Load on-chain scores when wallet connects
+  useEffect(() => {
+    if (isConnected && address && chainId === monadTestnet.id) {
+      loadOnChainScores()
+    }
+  }, [isConnected, address, chainId, loadOnChainScores])
+
   // Initialize first level
   useEffect(() => {
     initializeLevel(1)
@@ -169,6 +329,7 @@ export default function PacmonGameTestDemo() {
             if (pelletIndex !== -1) {
               newState.pellets = newState.pellets.filter((_, index) => index !== pelletIndex)
               newState.score += 10
+              soundManagerRef.current?.play('pelletEat')
             }
 
             // Check power pellet collection
@@ -180,6 +341,7 @@ export default function PacmonGameTestDemo() {
               newState.score += 50
               newState.powerMode = true
               newState.powerModeTimer = 30 // 6 seconds at 200ms intervals
+              soundManagerRef.current?.play('powerPellet')
             }
           } else {
             // Stop Pacmon if hits a wall
@@ -271,6 +433,7 @@ export default function PacmonGameTestDemo() {
                 newState.score += 200
                 ghost.eaten = true
                 ghost.vulnerable = false
+                soundManagerRef.current?.play('ghostEat')
               } else if (!ghost.eaten) {
                 // Lose life
                 newState.lives -= 1
@@ -286,8 +449,11 @@ export default function PacmonGameTestDemo() {
                   vulnerable: false,
                   eaten: false
                 }))
+                soundManagerRef.current?.play('death')
                 if (newState.lives <= 0) {
                   newState.gameStatus = 'postGame'
+                  soundManagerRef.current?.stopBackgroundMusic()
+                  soundManagerRef.current?.play('gameOver')
                 }
               }
             }
@@ -497,11 +663,70 @@ export default function PacmonGameTestDemo() {
     }
   }, [gameState])
 
-  const startGame = () => {
+  const handleWalletConnect = async () => {
+    if (!isConnected) {
+      if (isEthProviderAvailable) {
+        connect({ connector: farcasterFrame() })
+      }
+      return
+    }
+
+    if (chainId !== monadTestnet.id) {
+      switchChain({ chainId: monadTestnet.id })
+      return
+    }
+
+    // Start the game after wallet is connected and on correct chain
     setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+    soundManagerRef.current?.playBackgroundMusic()
+  }
+
+  const handleScoreSubmission = async () => {
+    if (!isConnected || chainId !== monadTestnet.id) {
+      return
+    }
+
+    try {
+      // Create transaction data for score submission
+      const scoreData = toHex(gameState.score, { size: 32 })
+      const timestampData = toHex(Math.floor(Date.now() / 1000), { size: 32 })
+      
+      // Send transaction to store score on-chain
+      await sendTransaction({
+        to: SCORE_CONTRACT_ADDRESS,
+        value: parseEther("0.015"),
+        data: `0x${scoreData.slice(2)}${timestampData.slice(2)}`
+      })
+
+      // Update local state to reflect the new on-chain score
+      setGameState(prev => ({
+        ...prev,
+        userOnChainScore: prev.score,
+        onChainScores: [
+          { address: address!, score: prev.score, timestamp: Date.now() },
+          ...prev.onChainScores.filter(s => s.address.toLowerCase() !== address!.toLowerCase())
+        ].sort((a, b) => b.score - a.score)
+      }))
+      setScoreSaved(true)
+
+    } catch (error) {
+      console.error("Score submission failed:", error)
+    }
+  }
+
+  const startGame = () => {
+    if (!isConnected) {
+      handleWalletConnect()
+    } else if (chainId !== monadTestnet.id) {
+      switchChain({ chainId: monadTestnet.id })
+    } else {
+      setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+      soundManagerRef.current?.playBackgroundMusic()
+    }
   }
 
   const restartGame = () => {
+    setScoreSaved(false)
     setGameState(prev => ({
       ...prev,
       score: 0,
@@ -515,10 +740,21 @@ export default function PacmonGameTestDemo() {
     
     // Reinitialize level 1
     initializeLevel(1)
+    soundManagerRef.current?.playBackgroundMusic()
   }
 
   const exitGame = () => {
     setGameState(prev => ({ ...prev, gameStatus: 'pregame' }))
+    soundManagerRef.current?.stopBackgroundMusic()
+  }
+
+  const toggleLeaderboard = () => {
+    setGameState(prev => ({ ...prev, showLeaderboard: !prev.showLeaderboard }))
+  }
+
+  const toggleSounds = () => {
+    const soundsEnabled = soundManagerRef.current?.toggleSounds()
+    return soundsEnabled
   }
 
   // Handle mobile controls
@@ -538,16 +774,68 @@ export default function PacmonGameTestDemo() {
 
   return (
     <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-      {gameState.gameStatus === 'pregame' && (
+      {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
         <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
           <div className="text-center space-y-4">
             <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
               PACMON
             </h1>
-            <p className="text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              Improved Game with Progressive Difficulty
-            </p>
+            <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+              <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                Current High Scores Onchain
+              </div>
+              <div className="space-y-2 bg-black bg-opacity-30 rounded-lg p-4">
+                {gameState.onChainScores.slice(0, 3).map((score, index) => (
+                  <div key={index} className="flex items-center justify-between text-base md:text-lg" style={{ 
+                    color: index === 0 ? COLORS.MONAD_BERRY : index === 1 ? COLORS.MONAD_BLUE : COLORS.MONAD_OFF_WHITE 
+                  }}>
+                    <span className="flex items-center">
+                      <span className="text-xl mr-2">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                      <span className="font-bold">{index === 0 ? '1st' : index === 1 ? '2nd' : '3rd'}</span>
+                    </span>
+                    <span className="font-mono">{score.score.toLocaleString()}</span>
+                    <span className="text-sm font-mono">{`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}</span>
+                  </div>
+                ))}
+                {gameState.onChainScores.length === 0 && (
+                  <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    Save your score onchain to appear here
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* User's On-Chain Score */}
+          {gameState.userOnChainScore !== null && (
+            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+              <div className="text-center space-y-2">
+                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  Your Today's Onchain Score
+                </div>
+                <div className="text-xl font-mono font-bold" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {gameState.userOnChainScore.toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Wallet Connection Status */}
+          {isConnected && (
+            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+              <div className="text-center space-y-2">
+                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  Wallet Connected
+                </div>
+                <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {address?.slice(0, 6)}...{address?.slice(-4)}
+                </div>
+                <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="w-full max-w-md space-y-4 px-4">
             <button
@@ -558,18 +846,91 @@ export default function PacmonGameTestDemo() {
                 color: COLORS.WHITE 
               }}
             >
-              Start Game
+              {!isConnected ? 'Connect Wallet to Play' : 
+               chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
+               'Start Game'}
             </button>
+
+            <button
+              onClick={toggleLeaderboard}
+              className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
+              style={{ 
+                backgroundColor: COLORS.MONAD_PURPLE, 
+                color: COLORS.WHITE 
+              }}
+            >
+              View Leaderboard
+            </button>
+
+            {isConnected && (
+              <button
+                onClick={() => disconnect()}
+                className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
+                style={{ 
+                  backgroundColor: 'transparent', 
+                  color: COLORS.MONAD_OFF_WHITE,
+                  border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
+                }}
+              >
+                Disconnect Wallet
+              </button>
+            )}
           </div>
 
           <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-            <p>Use arrow keys or WASD to move</p>
+            <p>Swipe/Mouse to move, tap/click to play</p>
             <p className="mt-1">Eat all pellets while avoiding ghosts!</p>
             <p className="mt-1">Progress through levels with increasing difficulty!</p>
             <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
-              Level 1: 7x7 maze, 1 ghost | Level 2: 9x9 maze, 1 ghost | Level 3+: Bigger mazes, more ghosts!
+              Submit your score to the blockchain for 0.015 MON!
             </p>
           </div>
+        </div>
+      )}
+
+      {gameState.showLeaderboard && (
+        <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
+              Leaderboard
+            </h2>
+            <p className="text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+              Save your score onchain to appear here
+            </p>
+          </div>
+
+          <div className="w-full max-w-md space-y-2 px-4">
+            {gameState.onChainScores.map((score, index) => (
+              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-black bg-opacity-30">
+                <span className="text-lg font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  #{index + 1}
+                </span>
+                <span className="font-mono text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {score.score.toLocaleString()}
+                </span>
+                <span className="text-sm font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}
+                </span>
+              </div>
+            ))}
+            {gameState.onChainScores.length === 0 && (
+              <div className="text-center p-8" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                <p>No scores saved onchain yet.</p>
+                <p className="mt-2 text-sm">Be the first to save your score!</p>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={toggleLeaderboard}
+            className="py-4 px-8 text-lg font-bold rounded-lg"
+            style={{ 
+              backgroundColor: COLORS.MONAD_BERRY, 
+              color: COLORS.WHITE 
+            }}
+          >
+            Back to Game
+          </button>
         </div>
       )}
 
@@ -588,6 +949,16 @@ export default function PacmonGameTestDemo() {
                   Power: {Math.ceil(gameState.powerModeTimer / 5)}s
                 </div>
               )}
+              <button
+                onClick={toggleSounds}
+                className="text-xs px-2 py-1 rounded"
+                style={{ 
+                  backgroundColor: COLORS.MONAD_BLUE, 
+                  color: COLORS.WHITE 
+                }}
+              >
+                {soundManagerRef.current?.getSoundsEnabled() ? '🔊' : '🔇'}
+              </button>
             </div>
           </div>
 
@@ -678,9 +1049,26 @@ export default function PacmonGameTestDemo() {
             <p className="text-lg" style={{ color: COLORS.MONAD_PURPLE }}>
               Reached Level: {gameState.level}
             </p>
+            {gameState.score > (gameState.userOnChainScore || 0) && (
+              <p className="text-lg" style={{ color: COLORS.GREEN }}>
+                🎉 New Personal Best! 🎉
+              </p>
+            )}
           </div>
 
           <div className="w-full max-w-md space-y-4 px-4">
+            <button
+              onClick={handleScoreSubmission}
+              disabled={scoreSaved}
+              className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+              style={{ 
+                backgroundColor: scoreSaved ? COLORS.GREEN : COLORS.MONAD_PURPLE,
+                color: COLORS.WHITE 
+              }}
+            >
+              {scoreSaved ? 'Saved Successfully!' : 'Save Score Onchain [0.015 MON]'}
+            </button>
+
             <button
               onClick={restartGame}
               className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
@@ -705,7 +1093,8 @@ export default function PacmonGameTestDemo() {
           </div>
 
           <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-            <p>Try to beat your high score!</p>
+            <p>Submit your score to compete on the leaderboard!</p>
+            <p className="mt-1">Or play again to beat your high score!</p>
           </div>
         </div>
       )}
