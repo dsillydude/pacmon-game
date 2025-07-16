@@ -34,8 +34,19 @@ const CELL_SIZE = 20
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE
 const GAME_HEIGHT = GRID_SIZE * CELL_SIZE
 
+
+type LevelConfig = {
+  gameSpeed: number;
+  ghostSpeed: number;
+  pelletValue: number;
+  powerPelletValue: number;
+  powerDuration: number;
+  bonusMultiplier: number;
+  ghostCount: number;
+};
+
 // Level configuration
-const LEVEL_CONFIG = {
+const LEVEL_CONFIG: { [key: number]: LevelConfig } = {
   1: { 
     gameSpeed: 250, 
     ghostSpeed: 1, 
