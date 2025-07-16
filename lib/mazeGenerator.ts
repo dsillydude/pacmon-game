@@ -24,14 +24,12 @@ export function generateMaze(level: number): Maze {
     dots: 0
   };
 
-  // Generate paths (simpler for early levels)
   if (level <= 2) {
     generateSimpleMaze(maze, settings);
   } else {
     generateComplexMaze(maze, settings);
   }
 
-  // Place player and ghosts
   maze.playerStart = findOpenSpace(maze) || { x: 1, y: 1 };
   maze.ghostStarts = [];
   for (let i = 0; i < settings.ghostCount; i++) {
@@ -43,18 +41,15 @@ export function generateMaze(level: number): Maze {
 }
 
 function generateSimpleMaze(maze: Maze, settings: ReturnType<typeof getLevelSettings>) {
-  // Simple maze with clear paths
   for (let y = 1; y < maze.size - 1; y += 2) {
     for (let x = 1; x < maze.size - 1; x += 2) {
       maze.grid[y][x] = PATH;
       
-      // Place dots
       if (Math.random() > 0.3 && maze.dots < settings.dots) {
         maze.grid[y][x] = DOT;
         maze.dots++;
       }
       
-      // Connect horizontally
       if (x + 1 < maze.size - 1) {
         maze.grid[y][x + 1] = PATH;
         if (Math.random() > 0.3 && maze.dots < settings.dots) {
@@ -65,7 +60,6 @@ function generateSimpleMaze(maze: Maze, settings: ReturnType<typeof getLevelSett
     }
   }
 
-  // Place power pellets
   for (let i = 0; i < settings.powerPellets; i++) {
     const pos = findOpenSpace(maze);
     if (pos) {
@@ -75,7 +69,6 @@ function generateSimpleMaze(maze: Maze, settings: ReturnType<typeof getLevelSett
 }
 
 function generateComplexMaze(maze: Maze, settings: ReturnType<typeof getLevelSettings>) {
-  // More complex maze generation for higher levels
   const frontier: {x: number, y: number}[] = [];
   const start = { x: 1, y: 1 };
   maze.grid[start.y][start.x] = PATH;
@@ -95,7 +88,6 @@ function generateComplexMaze(maze: Maze, settings: ReturnType<typeof getLevelSet
       maze.grid[cell.y][cell.x] = PATH;
       maze.grid[between.y][between.x] = PATH;
       
-      // Place dots with higher probability
       if (Math.random() > 0.2 && maze.dots < settings.dots) {
         maze.grid[cell.y][cell.x] = DOT;
         maze.dots++;
@@ -105,7 +97,6 @@ function generateComplexMaze(maze: Maze, settings: ReturnType<typeof getLevelSet
     frontier.push(...getNeighbors(cell, maze).filter(n => maze.grid[n.y][n.x] === WALL));
   }
 
-  // Place power pellets
   for (let i = 0; i < settings.powerPellets; i++) {
     const pos = findOpenSpace(maze);
     if (pos) {
