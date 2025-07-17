@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useFrame } from '@components/farcaster-provider'
+import { useFrame } from './farcaster-provider'
 import { FarcasterFrame } from '@farcaster/frame-wagmi-connector'
 import { parseEther, encodeFunctionData, keccak256, toHex } from 'viem'
 import { monadTestnet } from 'viem/chains'
