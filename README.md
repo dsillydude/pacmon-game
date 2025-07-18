@@ -1,185 +1,198 @@
-# Pacmon Game - Improved Version
+# MonCrush - Farcaster Miniapp
 
-An enhanced Pacman-style game with progressive difficulty levels, built as a Farcaster Mini App with classic Pac-Man visuals.
+MonCrush is a Farcaster miniapp that gamifies romantic connections within the Monad ecosystem. Users answer three personality questions about their relationship with Monad, get matched with compatible users, and can mint NFTs or send MON tokens to their matches.
 
-## 🎮 New Features & Improvements
+## Features
 
-### Progressive Difficulty System
-- **Level 1**: Simple 15x15 maze, 2 ghosts, slower speed - perfect for beginners
-- **Level 2**: Medium 20x20 maze, 3 ghosts, normal speed
-- **Level 3+**: Full classic 28x31 maze, 4 ghosts, increasing speed every 2 levels
+- **Three-Question Personality Assessment**: Users answer questions about their relationship with Monad
+- **AI-Powered Matching**: Compatibility scoring based on responses
+- **Social Sharing**: Built-in Farcaster integration for viral growth
+- **NFT Minting**: Mint match cards as NFTs for 0.01 MON
+- **Token Transfers**: Send MON tokens to matches with claim codes
+- **Beautiful UI**: Purple-pink gradient theme with smooth animations
 
-### Enhanced Visual Design
-- **Classic Pac-Man Colors**: Yellow Pac-Man, blue maze walls, authentic ghost colors
-- **Authentic Ghost Design**: Classic ghost shapes with wavy bottoms and directional eyes
-- **Improved Pac-Man**: Animated mouth that opens in the direction of movement
-- **Power Pellet Effects**: Glowing power pellets with visual effects
-- **Clean UI**: Removed unnecessary text, improved score display with Pac-Man life icons
+## Tech Stack
 
-### Better Game Mechanics
-- **Smart Ghost AI**: Ghosts chase Pac-Man intelligently and flee when frightened
-- **Responsive Controls**: Smooth WASD and arrow key controls
-- **High Score Tracking**: Persistent high score display
-- **Level Progression**: Automatic level advancement with increasing difficulty
-- **Improved Collision Detection**: More accurate collision system
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Farcaster Integration**: @farcaster/frame-sdk
+- **Blockchain**: Monad Testnet integration
+- **Deployment**: Vercel (recommended)
 
-### Mobile & Desktop Support
-- **Responsive Design**: Works on both desktop and mobile devices
-- **Touch-Friendly**: Optimized for touch interactions
-- **Adaptive Canvas**: Canvas size adjusts based on maze complexity
+## Getting Started
 
-## 🎨 Visual Design Matching Reference
+### Prerequisites
 
-The game now perfectly matches the classic Pac-Man aesthetic:
-- Blue maze walls on black background
-- Yellow Pac-Man with animated mouth
-- Authentic ghost colors: Red (Blinky), Pink (Pinky), Cyan (Inky), Orange (Clyde)
-- White dots and glowing power pellets
-- Classic ghost house design in larger mazes
+- Node.js 18+ 
+- npm or yarn
+- Git
 
-## 🕹️ Controls
+### Installation
 
-- **Arrow Keys** or **WASD** to move Pac-Man
-- **ENTER** to start the game
-- **R** to restart after game over
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd moncrush-app
+```
 
-## 🚀 Level Progression
+2. Install dependencies:
+```bash
+npm install
+```
 
-### Level 1 (Tutorial)
-- Simple maze layout
-- Only 2 ghosts (Red and Pink)
-- Slower ghost speed (1.5 pixels/frame)
-- 2 power pellets
-- Perfect for learning the game
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
 
-### Level 2 (Intermediate)
-- Medium complexity maze
-- 3 ghosts (Red, Pink, Cyan)
-- Normal ghost speed (2 pixels/frame)
-- 3 power pellets
-- More challenging layout
+4. Update the environment variables in `.env.local`:
+```
+NEXT_PUBLIC_URL=https://your-domain.vercel.app
+```
 
-### Level 3+ (Advanced)
-- Full classic Pac-Man maze
-- All 4 ghosts with unique colors
-- Progressive speed increase every 2 levels
-- 4 power pellets
-- Maximum challenge with tunnel warping
+### Development
 
-## 🎯 Scoring System
+Run the development server:
+```bash
+npm run dev
+```
 
-- **Dot**: 10 points
-- **Power Pellet**: 50 points
-- **Ghost**: 200 points (when frightened)
-- **High Score**: Automatically tracked and displayed
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-## 🛠️ Technical Improvements
+### Building for Production
 
-### Performance Optimizations
-- Efficient collision detection
-- Optimized rendering with requestAnimationFrame
-- Smart canvas resizing based on maze size
+Build the application:
+```bash
+npm run build
+```
 
-### Code Structure
-- Modular maze configurations
-- Level-based game parameters
-- Clean separation of game logic and rendering
-- TypeScript for better type safety
+This creates an optimized production build with static export enabled.
 
-## 📦 Installation & Deployment
+## Deployment
 
-1. **Clone the repository**:
-   ```bash
-   git clone <your-repo-url>
-   cd pacmon-game-improved
-   ```
+### Vercel (Recommended)
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+1. Push your code to GitHub
+2. Connect your GitHub repository to Vercel
+3. Set the environment variable `NEXT_PUBLIC_URL` to your Vercel domain
+4. Deploy
 
-3. **Set up environment**:
-   ```bash
-   cp .env.example .env.local
-   ```
+### Manual Deployment
 
-4. **Run development server**:
-   ```bash
-   npm run dev
-   ```
+The app is configured for static export and can be deployed to any static hosting service:
 
-5. **Build for production**:
-   ```bash
-   npm run build
-   ```
+```bash
+npm run build
+# Deploy the 'out' directory to your hosting service
+```
 
-## 🔧 Configuration
+## Farcaster Integration
 
-The game can be easily customized by modifying:
+### Configuration
 
-- `MAZES` object for different level layouts
-- `LEVEL_CONFIG` for difficulty parameters
-- `COLORS` object for visual theming
-- `GHOST_COLORS` array for ghost appearances
+Update the Farcaster configuration in `app/.well-known/farcaster.json/route.ts`:
 
-## 🎮 Game Features
+1. Set your production URL
+2. Add account association details (required for app store)
+3. Update app metadata (name, description, tags)
 
-### Core Gameplay
-- ✅ Progressive difficulty levels
-- ✅ Classic Pac-Man mechanics
-- ✅ Power pellet system with frightened ghosts
-- ✅ Lives system with visual indicators
-- ✅ Level completion detection
-- ✅ High score tracking
+### Testing in Farcaster
 
-### Visual Features
-- ✅ Authentic Pac-Man design
-- ✅ Animated character mouth
-- ✅ Classic ghost shapes and colors
-- ✅ Glowing power pellets
-- ✅ Clean, retro-style UI
-- ✅ Responsive canvas sizing
+1. Deploy your app to a public URL
+2. Open the URL in the Farcaster app
+3. The app will automatically detect the Farcaster environment
 
-### Technical Features
-- ✅ Smooth 60fps gameplay
-- ✅ Efficient collision detection
-- ✅ Mobile-friendly controls
-- ✅ Farcaster integration
-- ✅ Wallet connectivity
-- ✅ TypeScript support
+## Monad Integration
 
-## 🐛 Bug Fixes
+### Current Features
 
-- Fixed ghost AI pathfinding
-- Improved collision detection accuracy
-- Resolved canvas sizing issues
-- Fixed power pellet timer conflicts
-- Corrected level progression logic
+- Monad Testnet support (Chain ID: 10143)
+- MON token integration for payments
+- NFT minting capabilities
 
-## 🚀 Future Enhancements
+### Future Enhancements
 
-Potential improvements for future versions:
-- Sound effects and background music
-- Particle effects for eating dots
-- Bonus fruit system
-- Multiplayer support
-- Leaderboard integration
-- Achievement system
-- Custom maze editor
+- Smart contract deployment for match NFTs
+- Escrow system for MON transfers
+- Claim code system for token transfers
+- Advanced matching algorithms
 
-## 📄 License
+## Game Flow
 
-MIT License - feel free to use and modify for your own projects!
+1. **Intro Screen**: Welcome message and game explanation
+2. **Question 1**: "What's one thing you LOVE about Monad?"
+3. **Question 2**: "What's your ideal Monad date?"
+4. **Question 3**: "If Monad were a person, they would be..."
+5. **Matching**: AI-powered compatibility analysis
+6. **Results**: Match reveal with compatibility score
+7. **Actions**: Share, mint NFT, or send MON tokens
 
-## 🤝 Contributing
+## Customization
 
-Contributions are welcome! Areas for improvement:
-- Additional maze layouts
-- Enhanced ghost AI behaviors
-- Sound and music integration
-- Mobile touch controls
-- Performance optimizations
+### Questions
 
-Built with ❤️ for the Monad and Farcaster communities!
+Update the questions in `components/pages/app.tsx`:
+
+```typescript
+const questions: Question[] = [
+  {
+    id: 1,
+    text: "Your custom question",
+    placeholder: "Placeholder text..."
+  },
+  // Add more questions
+]
+```
+
+### Styling
+
+The app uses Tailwind CSS. Main color scheme:
+- Primary Purple: `#6B46C1`
+- Love Pink: `#EC4899`
+- Background gradient: `from-purple-900 to-pink-900`
+
+### Matching Algorithm
+
+Currently uses a simple mock algorithm. Implement your own in the `handleAnswerSubmit` function:
+
+```typescript
+// Replace with your matching logic
+const mockMatch: Match = {
+  username: 'matched_user',
+  compatibility: calculateCompatibility(answers),
+  reason: generateMatchReason(answers)
+}
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Support
+
+For questions or support:
+- Create an issue on GitHub
+- Join the Monad Discord community
+- Follow @monad on Farcaster
+
+## Roadmap
+
+- [ ] Real user matching system
+- [ ] Advanced compatibility algorithms
+- [ ] Smart contract integration
+- [ ] Leaderboards and achievements
+- [ ] Daily streak system
+- [ ] Premium features
+- [ ] Multi-language support
+
+---
+
+Built with ❤️ for the Monad and Farcaster communities
 

@@ -1,23 +1,36 @@
-import PacmonGame from '@components/PacmonGame'
+import App from '../components/pages/app'
+import { APP_URL } from '../lib/constants'
+import type { Metadata } from 'next'
 
-export default function Home() {
-  return <PacmonGame />
+const frame = {
+  version: 'next',
+  imageUrl: `${APP_URL}/images/feed.png`,
+  button: {
+    title: 'Find Your MonCrush 💘',
+    action: {
+      type: 'launch_frame',
+      name: 'MonCrush',
+      url: APP_URL,
+      splashImageUrl: `${APP_URL}/images/splash.png`,
+      splashBackgroundColor: '#6B46C1',
+    },
+  },
 }
 
-export const metadata = {
-  title: 'Pacmon Game - Enhanced Pacman with Progressive Levels',
-  description: 'Play the enhanced Pacman game with progressive difficulty levels, classic visuals, and Farcaster integration.',
-  openGraph: {
-    title: 'Pacmon Game - Enhanced Pacman',
-    description: 'Enhanced Pacman game with progressive difficulty levels',
-    images: ['/api/og'],
-  },
-  other: {
-    'fc:frame': 'vNext',
-    'fc:frame:image': `${process.env.NEXT_PUBLIC_URL}/api/frame`,
-    'fc:frame:post_url': `${process.env.NEXT_PUBLIC_URL}/api/frame`,
-    'fc:frame:button:1': 'Play Game',
-    'fc:frame:button:2': 'View Leaderboard',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'MonCrush - Find Your Perfect Monad Match',
+    openGraph: {
+      title: 'MonCrush - Find Your Perfect Monad Match',
+      description: 'Find your perfect match through code, vibes, and a little onchain fate.',
+    },
+    other: {
+      'fc:frame': JSON.stringify(frame),
+    },
+  }
+}
+
+export default function Home() {
+  return <App />
 }
 
