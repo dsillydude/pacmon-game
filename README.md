@@ -1,112 +1,172 @@
-# Pacmon - Monad Pacman Game
+# Pacmon Game - Improved Version
 
-A Pacman-style game with Monad theming, built as a Farcaster Mini App.
+An enhanced Pacman-style game with progressive difficulty levels, built as a Farcaster Mini App with classic Pac-Man visuals.
 
-## 🎮 Game Features
+## 🎮 New Features & Improvements
 
-- **Classic Pacman Gameplay**: Navigate through a maze, eat pellets, and avoid ghosts
-- **Monad Theming**: Beautiful Monad color palette and branding
-- **Farcaster Integration**: Runs as a native mini-app within Farcaster
+### Progressive Difficulty System
+- **Level 1**: Simple 15x15 maze, 2 ghosts, slower speed - perfect for beginners
+- **Level 2**: Medium 20x20 maze, 3 ghosts, normal speed
+- **Level 3+**: Full classic 28x31 maze, 4 ghosts, increasing speed every 2 levels
+
+### Enhanced Visual Design
+- **Classic Pac-Man Colors**: Yellow Pac-Man, blue maze walls, authentic ghost colors
+- **Authentic Ghost Design**: Classic ghost shapes with wavy bottoms and directional eyes
+- **Improved Pac-Man**: Animated mouth that opens in the direction of movement
+- **Power Pellet Effects**: Glowing power pellets with visual effects
+- **Clean UI**: Removed unnecessary text, improved score display with Pac-Man life icons
+
+### Better Game Mechanics
+- **Smart Ghost AI**: Ghosts chase Pac-Man intelligently and flee when frightened
+- **Responsive Controls**: Smooth WASD and arrow key controls
+- **High Score Tracking**: Persistent high score display
+- **Level Progression**: Automatic level advancement with increasing difficulty
+- **Improved Collision Detection**: More accurate collision system
+
+### Mobile & Desktop Support
 - **Responsive Design**: Works on both desktop and mobile devices
-- **Power Pellets**: Temporarily turn ghosts vulnerable and eat them for bonus points
+- **Touch-Friendly**: Optimized for touch interactions
+- **Adaptive Canvas**: Canvas size adjusts based on maze complexity
 
-## 🎨 Visual Design
+## 🎨 Visual Design Matching Reference
 
-- **Pacmon Character**: Monad Purple (#836EF9) themed Pacman
-- **Ghosts**: Monad Blue (#200052), Monad Berry (#A0055D), and Monad Off-White (#FBFAF9)
-- **Maze**: Monad Blue walls on Monad Black background
-- **Pellets**: Monad Off-White dots
-- **Power Pellets**: Larger Monad Purple glowing orbs
+The game now perfectly matches the classic Pac-Man aesthetic:
+- Blue maze walls on black background
+- Yellow Pac-Man with animated mouth
+- Authentic ghost colors: Red (Blinky), Pink (Pinky), Cyan (Inky), Orange (Clyde)
+- White dots and glowing power pellets
+- Classic ghost house design in larger mazes
 
 ## 🕹️ Controls
 
-- **Arrow Keys** or **WASD** to move Pacmon
-- Eat all pellets to complete the level
-- Avoid ghosts or lose a life
-- Eat power pellets to temporarily make ghosts vulnerable
+- **Arrow Keys** or **WASD** to move Pac-Man
+- **ENTER** to start the game
+- **R** to restart after game over
 
-## 🚀 Local Development
+## 🚀 Level Progression
 
-1. Clone the repository:
-```bash
-git clone <your-repo-url>
-cd pacmon-game
-```
+### Level 1 (Tutorial)
+- Simple maze layout
+- Only 2 ghosts (Red and Pink)
+- Slower ghost speed (1.5 pixels/frame)
+- 2 power pellets
+- Perfect for learning the game
 
-2. Install dependencies:
-```bash
-npm install
-```
+### Level 2 (Intermediate)
+- Medium complexity maze
+- 3 ghosts (Red, Pink, Cyan)
+- Normal ghost speed (2 pixels/frame)
+- 3 power pellets
+- More challenging layout
 
-3. Copy environment file:
-```bash
-cp .env.example .env.local
-```
+### Level 3+ (Advanced)
+- Full classic Pac-Man maze
+- All 4 ghosts with unique colors
+- Progressive speed increase every 2 levels
+- 4 power pellets
+- Maximum challenge with tunnel warping
 
-4. Start the development server:
-```bash
-npm run dev
-```
+## 🎯 Scoring System
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+- **Dot**: 10 points
+- **Power Pellet**: 50 points
+- **Ghost**: 200 points (when frightened)
+- **High Score**: Automatically tracked and displayed
 
-## 📦 Deployment
+## 🛠️ Technical Improvements
 
-### Vercel Deployment
+### Performance Optimizations
+- Efficient collision detection
+- Optimized rendering with requestAnimationFrame
+- Smart canvas resizing based on maze size
 
-1. Push your code to GitHub
-2. Connect your GitHub repository to Vercel
-3. Deploy with default settings
-4. Update your `.env.local` with the production URL:
-```
-NEXT_PUBLIC_URL=https://your-app.vercel.app
-```
+### Code Structure
+- Modular maze configurations
+- Level-based game parameters
+- Clean separation of game logic and rendering
+- TypeScript for better type safety
 
-### Farcaster Integration
+## 📦 Installation & Deployment
 
-1. Deploy your app to a public URL (Vercel recommended)
-2. Update the `NEXT_PUBLIC_URL` environment variable
-3. Go to Farcaster Settings > Developer > Domains
-4. Add your domain and generate the domain manifest
-5. Your mini-app will be available in Farcaster!
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd pacmon-game-improved
+   ```
 
-## 🛠️ Built With
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-- **Next.js 14** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **Farcaster Frame SDK** - Mini-app integration
-- **HTML5 Canvas** - Game rendering
+3. **Set up environment**:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## 📁 Project Structure
+4. **Run development server**:
+   ```bash
+   npm run dev
+   ```
 
-```
-pacmon-game/
-├── app/                    # Next.js app directory
-│   ├── page.tsx           # Main page with frame metadata
-│   └── .well-known/       # Farcaster configuration
-├── components/
-│   ├── PacmonGame.tsx     # Main game component
-│   └── pages/app.tsx      # App wrapper with Farcaster integration
-├── public/images/         # Game assets and images
-├── lib/                   # Utilities and constants
-└── README.md
-```
-
-## 🎯 Game Mechanics
-
-- **Score**: 10 points per pellet, 50 points per power pellet, 200 points per ghost
-- **Lives**: Start with 3 lives, lose one when touched by a ghost
-- **Power Mode**: Lasts 6 seconds, makes ghosts vulnerable
-- **Level Complete**: Eat all pellets and power pellets to win
+5. **Build for production**:
+   ```bash
+   npm run build
+   ```
 
 ## 🔧 Configuration
 
-The game can be customized by modifying:
-- `COLORS` object in `PacmonGame.tsx` for theming
-- `MAZE` array for different level layouts
-- Game constants like `GRID_SIZE`, `CELL_SIZE` for sizing
-- Ghost AI behavior and movement patterns
+The game can be easily customized by modifying:
+
+- `MAZES` object for different level layouts
+- `LEVEL_CONFIG` for difficulty parameters
+- `COLORS` object for visual theming
+- `GHOST_COLORS` array for ghost appearances
+
+## 🎮 Game Features
+
+### Core Gameplay
+- ✅ Progressive difficulty levels
+- ✅ Classic Pac-Man mechanics
+- ✅ Power pellet system with frightened ghosts
+- ✅ Lives system with visual indicators
+- ✅ Level completion detection
+- ✅ High score tracking
+
+### Visual Features
+- ✅ Authentic Pac-Man design
+- ✅ Animated character mouth
+- ✅ Classic ghost shapes and colors
+- ✅ Glowing power pellets
+- ✅ Clean, retro-style UI
+- ✅ Responsive canvas sizing
+
+### Technical Features
+- ✅ Smooth 60fps gameplay
+- ✅ Efficient collision detection
+- ✅ Mobile-friendly controls
+- ✅ Farcaster integration
+- ✅ Wallet connectivity
+- ✅ TypeScript support
+
+## 🐛 Bug Fixes
+
+- Fixed ghost AI pathfinding
+- Improved collision detection accuracy
+- Resolved canvas sizing issues
+- Fixed power pellet timer conflicts
+- Corrected level progression logic
+
+## 🚀 Future Enhancements
+
+Potential improvements for future versions:
+- Sound effects and background music
+- Particle effects for eating dots
+- Bonus fruit system
+- Multiplayer support
+- Leaderboard integration
+- Achievement system
+- Custom maze editor
 
 ## 📄 License
 
@@ -114,24 +174,12 @@ MIT License - feel free to use and modify for your own projects!
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to:
-- Add new levels or maze layouts
-- Improve ghost AI
-- Add sound effects
-- Enhance mobile controls
-- Add multiplayer features
-
-## 🐛 Known Issues
-
-- Game requires Farcaster SDK to run in production
-- Mobile touch controls could be improved
-- No sound effects currently implemented
-
-## 📞 Support
-
-For issues or questions, please open an issue on GitHub or contact the development team.
-
----
+Contributions are welcome! Areas for improvement:
+- Additional maze layouts
+- Enhanced ghost AI behaviors
+- Sound and music integration
+- Mobile touch controls
+- Performance optimizations
 
 Built with ❤️ for the Monad and Farcaster communities!
 
