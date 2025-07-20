@@ -14,21 +14,23 @@ import {
   usePublicClient,
 } from 'wagmi'
 
-// Classic Pac-Man color palette matching the reference image
+// Classic Pac-Man colors matching the reference image exactly
 const COLORS = {
   MONAD_PURPLE: '#836EF9',  // Keep Pac-Man purple as requested
-  MONAD_BLUE: '#0000FF',    // Classic blue for maze walls
-  MONAD_BLACK: '#000000',   // Pure black background
-  WHITE: '#FFFFFF',         // White pellets
-  YELLOW: '#FFFF00',        // Yellow for UI text
-  RED: '#FF0000',           // Red for Blinky
-  PINK: '#FFB6C1',          // Pink for Pinky  
-  ORANGE: '#FFA500',        // Orange for Clyde
-  BLUE: '#0000FF',          // Blue for Inky
-  GREEN: '#00FF00'
+  MAZE_BLUE: '#0000FF',     // Exact blue from reference image for maze walls
+  BACKGROUND_BLACK: '#000000', // Pure black background
+  PELLET_WHITE: '#FFFFFF',     // White pellets
+  UI_YELLOW: '#FFFF00',        // Yellow for UI text like "Ready!"
+  GHOST_RED: '#FF0000',        // Red ghost (Blinky)
+  GHOST_PINK: '#FFB6C1',       // Pink ghost (Pinky)  
+  GHOST_ORANGE: '#FFA500',     // Orange ghost (Clyde)
+  GHOST_CYAN: '#00FFFF',       // Cyan ghost (Inky) - matches reference
+  POWER_PELLET_GLOW: '#FFFFFF', // White glow for power pellets
+  VULNERABLE_BLUE: '#0000FF',   // Blue when ghosts are vulnerable
+  VULNERABLE_WHITE: '#FFFFFF'   // White flash when vulnerable
 }
 
-// Game constants
+// Game constants optimized for visual accuracy
 const GRID_SIZE = 20
 const CELL_SIZE = 20
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE
@@ -42,54 +44,60 @@ type LevelConfig = {
   powerDuration: number;
   bonusMultiplier: number;
   ghostCount: number;
-};
+  pelletDensity: number; // How many pellets to spawn (0-1)
+}
 
-// Progressive level configuration - starts much easier
+// Enhanced progressive level configuration - much easier start
 const LEVEL_CONFIG: { [key: number]: LevelConfig } = {
   1: { 
-    gameSpeed: 300,    // Slower for beginners
-    ghostSpeed: 1, 
+    gameSpeed: 400,      // Much slower for beginners
+    ghostSpeed: 0.8,     // Slower ghosts
     pelletValue: 10, 
     powerPelletValue: 50, 
-    powerDuration: 40,  // Longer power duration
+    powerDuration: 50,   // Longer power mode
     bonusMultiplier: 1,
-    ghostCount: 1       // Start with just 1 ghost
+    ghostCount: 1,       // Only 1 ghost to start
+    pelletDensity: 0.3   // Fewer pellets, easier to complete
   },
   2: { 
-    gameSpeed: 250, 
-    ghostSpeed: 1, 
+    gameSpeed: 350, 
+    ghostSpeed: 0.9, 
     pelletValue: 15, 
     powerPelletValue: 75, 
-    powerDuration: 35,
+    powerDuration: 45,
     bonusMultiplier: 1.2,
-    ghostCount: 2       // Add second ghost
+    ghostCount: 2,       // Add second ghost
+    pelletDensity: 0.5   // More pellets
   },
   3: { 
-    gameSpeed: 220, 
-    ghostSpeed: 1, 
+    gameSpeed: 300, 
+    ghostSpeed: 1.0, 
     pelletValue: 20, 
     powerPelletValue: 100, 
-    powerDuration: 30,
+    powerDuration: 40,
     bonusMultiplier: 1.5,
-    ghostCount: 3       // Add third ghost
+    ghostCount: 3,       // Add third ghost
+    pelletDensity: 0.7   // Even more pellets
   },
   4: { 
-    gameSpeed: 200, 
-    ghostSpeed: 1, 
+    gameSpeed: 250, 
+    ghostSpeed: 1.1, 
     pelletValue: 25, 
     powerPelletValue: 125, 
-    powerDuration: 25,
+    powerDuration: 35,
     bonusMultiplier: 1.8,
-    ghostCount: 4       // Full ghost count
+    ghostCount: 4,       // All ghosts active
+    pelletDensity: 0.9   // Almost all pellets
   },
   5: { 
-    gameSpeed: 180, 
-    ghostSpeed: 1, 
+    gameSpeed: 200,      // Fastest speed
+    ghostSpeed: 1.2,     // Fastest ghosts
     pelletValue: 30, 
     powerPelletValue: 150, 
-    powerDuration: 20,
+    powerDuration: 30,   // Shortest power mode
     bonusMultiplier: 2,
-    ghostCount: 4
+    ghostCount: 4,
+    pelletDensity: 1.0   // All pellets present
   }
 }
 
@@ -157,7 +165,7 @@ interface GameState {
   gameSpeed: number
 }
 
-// Sound Manager Class
+// Enhanced Sound Manager Class
 class SoundManager {
   private sounds: { [key: string]: HTMLAudioElement } = {}
   private soundsEnabled: boolean = true
@@ -176,19 +184,22 @@ class SoundManager {
       levelComplete: '/sounds/level-complete.mp3',
       extraLife: '/sounds/extra-life.mp3',
       backgroundMusic: '/sounds/playing-pac-man.mp3',
-      arcadeSound: '/sounds/arcade-videogame-sound.mp3'
+      gameStart: '/sounds/game-start.mp3'
     }
 
     Object.entries(soundFiles).forEach(([key, path]) => {
-      const audio = new Audio(path)
-      audio.preload = 'auto'
-      audio.volume = 0.5
-      this.sounds[key] = audio
+      try {
+        const audio = new Audio(path)
+        audio.preload = 'auto'
+        audio.volume = key === 'backgroundMusic' ? 0.3 : 0.5
+        this.sounds[key] = audio
+      } catch (error) {
+        console.log(`Failed to load sound: ${key}`)
+      }
     })
 
     if (this.sounds.backgroundMusic) {
       this.sounds.backgroundMusic.loop = true
-      this.sounds.backgroundMusic.volume = 0.3
     }
   }
 
@@ -234,9 +245,9 @@ class SoundManager {
   }
 }
 
-// Progressive maze layouts - starting simple and getting more complex
+// Progressive maze layouts matching reference image design
 const MAZE_LAYOUTS = {
-  1: [ // Level 1: Very simple, open maze with minimal walls
+  1: [ // Level 1: Simple open maze - easy for beginners
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,2,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,1],
@@ -246,7 +257,7 @@ const MAZE_LAYOUTS = {
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,1],
-    [1,2,2,2,2,2,2,2,0,0,0,0,2,2,2,2,2,2,2,1], // Ghost house
+    [1,2,2,2,2,2,2,2,0,0,0,0,2,2,2,2,2,2,2,1], // Ghost starting area
     [1,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,1],
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
@@ -258,7 +269,7 @@ const MAZE_LAYOUTS = {
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
   ],
-  2: [ // Level 2: Add some internal walls
+  2: [ // Level 2: Moderate complexity
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
     [1,3,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,3,1],
@@ -280,7 +291,7 @@ const MAZE_LAYOUTS = {
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
   ],
-  3: [ // Level 3+: Full complexity - classic Pac-Man maze design
+  3: [ // Level 3+: Classic Pac-Man maze design matching reference image
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
     [1,3,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,3,1],
@@ -308,7 +319,7 @@ const MAZE_LAYOUTS = {
 const getMazeForLevel = (level: number) => {
   if (level === 1) return MAZE_LAYOUTS[1]
   if (level === 2) return MAZE_LAYOUTS[2]
-  return MAZE_LAYOUTS[3] // Use complex maze for level 3+
+  return MAZE_LAYOUTS[3] // Use classic maze for level 3+
 }
 
 export default function PacmonGame() {
@@ -339,7 +350,7 @@ export default function PacmonGame() {
     totalPlayers: 0,
     totalPlays: 0,
     userOnChainScore: null,
-    onChainScores: [], // No mock data - will be empty initially
+    onChainScores: [], // No mock data - empty initially
     showLeaderboard: false,
     currentLevel: 1,
     levelStats: [],
@@ -348,7 +359,7 @@ export default function PacmonGame() {
     consecutiveLevels: 0,
     bonusScore: 0,
     showBonusMessage: false,
-    gameSpeed: 300
+    gameSpeed: 400
   })
 
   // Initialize sound manager
@@ -362,7 +373,7 @@ export default function PacmonGame() {
 
     try {
       // In a real implementation, query the blockchain for actual scores
-      // For now, start with empty array - no mock data
+      // Starting with empty array - no mock data as requested
       const realOnChainScores: OnChainScore[] = []
 
       setGameState(prev => ({
@@ -383,33 +394,33 @@ export default function PacmonGame() {
     }
   }, [isConnected, address, chainId, loadOnChainScores])
 
-  // Initialize level with progressive difficulty
+  // Initialize level with enhanced progressive difficulty
   const initializeLevel = useCallback((level: number) => {
     const maze = getMazeForLevel(level)
     const pellets: Position[] = []
     const powerPellets: Position[] = []
+    const levelConfig = LEVEL_CONFIG[Math.min(level, 5)] || LEVEL_CONFIG[5]
     
-    // Progressive pellet distribution
+    // Progressive pellet distribution based on density
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (maze[y][x] === 2) {
-          // For level 1, only add every 3rd pellet to make it easier
-          if (level === 1 && Math.random() > 0.4) continue
-          pellets.push({ x, y })
+          if (Math.random() < levelConfig.pelletDensity) {
+            pellets.push({ x, y })
+          }
         } else if (maze[y][x] === 3) {
-          // Progressive power pellets - level 1 gets only 2
+          // Progressive power pellets - level 1 gets fewer
           if (level === 1 && powerPellets.length >= 2) continue
+          if (level === 2 && powerPellets.length >= 3) continue
           powerPellets.push({ x, y })
         }
       }
     }
-
-    const levelConfig = LEVEL_CONFIG[Math.min(level, 5)] || LEVEL_CONFIG[5]
     
-    // Progressive ghost initialization
+    // Progressive ghost initialization with correct colors from reference image
     const ghosts: Ghost[] = []
-    const ghostTypes = ['blinky', 'pinky', 'inky', 'clyde']
-    const ghostColors = [COLORS.RED, COLORS.PINK, COLORS.BLUE, COLORS.ORANGE] // Match reference image
+    const ghostTypes: Array<'blinky' | 'pinky' | 'inky' | 'clyde'> = ['blinky', 'pinky', 'inky', 'clyde']
+    const ghostColors = [COLORS.GHOST_RED, COLORS.GHOST_PINK, COLORS.GHOST_CYAN, COLORS.GHOST_ORANGE]
     
     for (let i = 0; i < levelConfig.ghostCount; i++) {
       ghosts.push({
@@ -418,7 +429,7 @@ export default function PacmonGame() {
         direction: { x: i % 2 === 0 ? 1 : -1, y: 0 },
         color: ghostColors[i],
         vulnerable: false,
-        type: ghostTypes[i] as 'blinky' | 'pinky' | 'inky' | 'clyde',
+        type: ghostTypes[i],
         scatterTarget: { x: 18 - (i % 2) * 17, y: i < 2 ? 0 : 18 },
         eaten: false,
         speed: levelConfig.ghostSpeed,
@@ -447,7 +458,7 @@ export default function PacmonGame() {
     initializeLevel(1)
   }, [initializeLevel])
 
-  // Enhanced game loop with variable speed
+  // Enhanced game loop with improved collision and movement
   useEffect(() => {
     if (gameLoopRef.current) {
       clearInterval(gameLoopRef.current)
@@ -467,9 +478,12 @@ export default function PacmonGame() {
             y: newState.pacmon.y + newState.pacmonDirection.y
           }
 
+          // Handle tunnel effect (wrap around edges)
+          if (newPacmonPos.x < 0) newPacmonPos.x = GRID_SIZE - 1
+          if (newPacmonPos.x >= GRID_SIZE) newPacmonPos.x = 0
+
           // Check for wall collision
-          if (newPacmonPos.x >= 0 && newPacmonPos.x < GRID_SIZE &&
-              newPacmonPos.y >= 0 && newPacmonPos.y < GRID_SIZE &&
+          if (newPacmonPos.y >= 0 && newPacmonPos.y < GRID_SIZE &&
               maze[newPacmonPos.y][newPacmonPos.x] !== 1) {
             newState.pacmon = newPacmonPos
 
@@ -501,9 +515,10 @@ export default function PacmonGame() {
             newState.pacmonDirection = { x: 0, y: 0 }
           }
 
-          // Move ghosts with level-appropriate AI
+          // Enhanced ghost AI with level-appropriate behavior
           newState.ghosts = newState.ghosts.map(ghost => {
-            if (currentTime - ghost.lastMoveTime < (200 / ghost.speed)) {
+            const moveDelay = 200 / ghost.speed
+            if (currentTime - ghost.lastMoveTime < moveDelay) {
               return ghost
             }
 
@@ -522,16 +537,23 @@ export default function PacmonGame() {
               } else {
                 newDirection.y = dy > 0 ? 1 : -1
               }
+
+              const newPos = { 
+                x: ghost.position.x + newDirection.x, 
+                y: ghost.position.y + newDirection.y 
+              }
+              
               return { 
                 ...ghost, 
                 direction: newDirection, 
-                position: { x: ghost.position.x + newDirection.x, y: ghost.position.y + newDirection.y },
+                position: newPos,
                 lastMoveTime: currentTime
               }
             }
 
             let targetTile: Position
-            if (newState.powerMode) {
+
+            if (newState.powerMode && ghost.vulnerable) {
               // Frightened mode - run away from Pac-Man
               const directions = [
                 { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
@@ -543,40 +565,51 @@ export default function PacmonGame() {
                 }
                 return testPos.x >= 0 && testPos.x < GRID_SIZE && 
                        testPos.y >= 0 && testPos.y < GRID_SIZE && 
-                       maze[testPos.y][testPos.x] !== 1
+                       maze[testPos.y] && maze[testPos.y][testPos.x] !== 1
               })
               
-              // Try to move away from Pac-Man
-              const selectedDirection = validDirections.reduce((best, dir) => {
+              // Move away from Pac-Man
+              const awayDirection = validDirections.reduce((best, dir) => {
                 const testPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
                 const testDistance = Math.sqrt(
                   Math.pow(testPos.x - newState.pacmon.x, 2) +
                   Math.pow(testPos.y - newState.pacmon.y, 2)
                 )
+                const currentBestPos = { x: ghost.position.x + best.x, y: ghost.position.y + best.y }
                 const bestDistance = Math.sqrt(
-                  Math.pow(ghost.position.x + best.x - newState.pacmon.x, 2) +
-                  Math.pow(ghost.position.y + best.y - newState.pacmon.y, 2)
+                  Math.pow(currentBestPos.x - newState.pacmon.x, 2) +
+                  Math.pow(currentBestPos.y - newState.pacmon.y, 2)
                 )
                 return testDistance > bestDistance ? dir : best
               }, validDirections[0] || { x: 0, y: 0 })
               
-              targetTile = { 
-                x: ghost.position.x + selectedDirection.x, 
-                y: ghost.position.y + selectedDirection.y 
+              const newPos = { 
+                x: ghost.position.x + awayDirection.x, 
+                y: ghost.position.y + awayDirection.y 
+              }
+              
+              return { 
+                ...ghost, 
+                direction: awayDirection, 
+                position: newPos, 
+                vulnerable: true,
+                lastMoveTime: currentTime
               }
             } else {
-              // Normal AI - simpler for early levels
+              // Normal AI behavior - different strategies for each ghost
               switch (ghost.type) {
                 case 'blinky':
-                  targetTile = newState.pacmon // Always target Pac-Man directly
+                  targetTile = newState.pacmon // Always chase Pac-Man directly
                   break
                 case 'pinky':
+                  // Target ahead of Pac-Man
                   targetTile = {
-                    x: newState.pacmon.x + newState.pacmonDirection.x * 4,
-                    y: newState.pacmon.y + newState.pacmonDirection.y * 4
+                    x: Math.max(0, Math.min(GRID_SIZE - 1, newState.pacmon.x + newState.pacmonDirection.x * 4)),
+                    y: Math.max(0, Math.min(GRID_SIZE - 1, newState.pacmon.y + newState.pacmonDirection.y * 4))
                   }
                   break
                 case 'inky':
+                  // Complex targeting based on Blinky's position
                   const blinky = newState.ghosts.find(g => g.type === 'blinky')
                   if (blinky) {
                     const pacmanAhead = {
@@ -588,30 +621,27 @@ export default function PacmonGame() {
                       y: pacmanAhead.y - blinky.position.y
                     }
                     targetTile = { 
-                      x: blinky.position.x + vector.x * 2, 
-                      y: blinky.position.y + vector.y * 2 
+                      x: Math.max(0, Math.min(GRID_SIZE - 1, blinky.position.x + vector.x * 2)), 
+                      y: Math.max(0, Math.min(GRID_SIZE - 1, blinky.position.y + vector.y * 2))
                     }
                   } else {
                     targetTile = newState.pacmon
                   }
                   break
                 case 'clyde':
+                  // Keep distance from Pac-Man, scatter when close
                   const distance = Math.sqrt(
                     Math.pow(ghost.position.x - newState.pacmon.x, 2) +
                     Math.pow(ghost.position.y - newState.pacmon.y, 2)
                   )
-                  if (distance < 8) {
-                    targetTile = ghost.scatterTarget
-                  } else {
-                    targetTile = newState.pacmon
-                  }
+                  targetTile = distance < 8 ? ghost.scatterTarget : newState.pacmon
                   break
                 default:
                   targetTile = newState.pacmon
               }
             }
 
-            // Simple pathfinding
+            // Enhanced pathfinding
             const possibleDirections = [
               { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
             ]
@@ -620,9 +650,13 @@ export default function PacmonGame() {
 
             possibleDirections.forEach(dir => {
               const nextPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
-              if (nextPos.x >= 0 && nextPos.x < GRID_SIZE && 
-                  nextPos.y >= 0 && nextPos.y < GRID_SIZE && 
-                  maze[nextPos.y][nextPos.x] !== 1) {
+              
+              // Handle edge wrapping
+              if (nextPos.x < 0) nextPos.x = GRID_SIZE - 1
+              if (nextPos.x >= GRID_SIZE) nextPos.x = 0
+              
+              if (nextPos.y >= 0 && nextPos.y < GRID_SIZE && 
+                  maze[nextPos.y] && maze[nextPos.y][nextPos.x] !== 1) {
                 const distance = Math.sqrt(
                   Math.pow(nextPos.x - targetTile.x, 2) +
                   Math.pow(nextPos.y - targetTile.y, 2)
@@ -634,11 +668,20 @@ export default function PacmonGame() {
               }
             })
 
+            const newPos = { 
+              x: ghost.position.x + bestDirection.x, 
+              y: ghost.position.y + bestDirection.y 
+            }
+
+            // Handle edge wrapping for ghosts too
+            if (newPos.x < 0) newPos.x = GRID_SIZE - 1
+            if (newPos.x >= GRID_SIZE) newPos.x = 0
+
             return { 
               ...ghost, 
               direction: bestDirection, 
-              position: { x: ghost.position.x + bestDirection.x, y: ghost.position.y + bestDirection.y }, 
-              vulnerable: newState.powerMode,
+              position: newPos, 
+              vulnerable: newState.powerMode && !ghost.eaten,
               lastMoveTime: currentTime
             }
           })
@@ -646,7 +689,7 @@ export default function PacmonGame() {
           // Check ghost collisions
           newState.ghosts.forEach(ghost => {
             if (ghost.position.x === newState.pacmon.x && ghost.position.y === newState.pacmon.y) {
-              if (ghost.vulnerable) {
+              if (ghost.vulnerable && !ghost.eaten) {
                 // Eat ghost
                 const basePoints = 200
                 const bonusPoints = Math.floor(basePoints * levelConfig.bonusMultiplier)
@@ -661,7 +704,7 @@ export default function PacmonGame() {
                 newState.pacmonDirection = { x: 0, y: 0 }
                 newState.ghosts = newState.ghosts.map(g => ({ 
                   ...g, 
-                  position: { x: 9 + (g.id % 2), y: 9 + Math.floor(g.id / 2) }, 
+                  position: { x: 9 + (g.id % 2), y: 9 + Math.floor((g.id - 1) / 2) }, 
                   direction: { x: g.id % 2 === 0 ? 1 : -1, y: 0 }, 
                   vulnerable: false, 
                   eaten: false 
@@ -681,7 +724,10 @@ export default function PacmonGame() {
             newState.powerModeTimer -= 1
             if (newState.powerModeTimer <= 0) {
               newState.powerMode = false
-              newState.ghosts = newState.ghosts.map(ghost => ({ ...ghost, vulnerable: false }))
+              newState.ghosts = newState.ghosts.map(ghost => ({ 
+                ...ghost, 
+                vulnerable: false 
+              }))
             }
           }
           
@@ -698,6 +744,7 @@ export default function PacmonGame() {
             newState.bonusScore = totalBonus
             newState.showBonusMessage = true
             
+            // Extra life every 3 levels
             if (newState.currentLevel % 3 === 0 && newState.lives < 5) {
               newState.lives += 1
               soundManagerRef.current?.play('extraLife')
@@ -705,26 +752,24 @@ export default function PacmonGame() {
             
             soundManagerRef.current?.play('levelComplete')
             
-            // Auto-advance to next level
+            // Auto-advance to next level after delay
             setTimeout(() => {
               setGameState(prev => {
                 const nextLevel = prev.currentLevel + 1
-                const newState = { ...prev }
-                newState.currentLevel = nextLevel
-                newState.gameStatus = 'playing'
-                newState.showBonusMessage = false
-                return newState
+                initializeLevel(nextLevel)
+                return {
+                  ...prev,
+                  currentLevel: nextLevel,
+                  gameStatus: 'playing',
+                  showBonusMessage: false
+                }
               })
-              
-              setTimeout(() => {
-                initializeLevel(newState.currentLevel + 1)
-              }, 100)
             }, 3000)
           }
           
           return newState
         })
-      }, gameState.gameSpeed)
+      }, gameState.gameSpeed) as NodeJS.Timeout
     }
 
     return () => {
@@ -734,7 +779,7 @@ export default function PacmonGame() {
     }
   }, [gameState.gameStatus, gameState.gameSpeed, initializeLevel])
 
-  // Handle keyboard input
+  // Enhanced keyboard controls
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return
 
@@ -767,10 +812,14 @@ export default function PacmonGame() {
     }
 
     const maze = getMazeForLevel(gameState.currentLevel)
-    const nextX = gameState.pacmon.x + newDirection.x
-    const nextY = gameState.pacmon.y + newDirection.y
+    let nextX = gameState.pacmon.x + newDirection.x
+    let nextY = gameState.pacmon.y + newDirection.y
 
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && maze[nextY][nextX] !== 1) {
+    // Handle tunnel wrapping
+    if (nextX < 0) nextX = GRID_SIZE - 1
+    if (nextX >= GRID_SIZE) nextX = 0
+
+    if (nextY >= 0 && nextY < GRID_SIZE && maze[nextY][nextX] !== 1) {
       setGameState(prev => ({ ...prev, pacmonDirection: newDirection }))
     }
   }, [gameState.pacmon, gameState.gameStatus, gameState.currentLevel])
@@ -780,7 +829,7 @@ export default function PacmonGame() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [handleKeyPress])
 
-  // Render game with classic Pac-Man colors
+  // Enhanced rendering with exact visual matching
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -791,11 +840,11 @@ export default function PacmonGame() {
     const maze = getMazeForLevel(gameState.currentLevel)
 
     // Clear canvas with pure black background
-    ctx.fillStyle = COLORS.MONAD_BLACK
+    ctx.fillStyle = COLORS.BACKGROUND_BLACK
     ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
 
-    // Draw maze walls in blue
-    ctx.fillStyle = COLORS.MONAD_BLUE
+    // Draw maze walls in exact blue from reference
+    ctx.fillStyle = COLORS.MAZE_BLUE
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (maze[y][x] === 1) {
@@ -804,8 +853,8 @@ export default function PacmonGame() {
       }
     }
 
-    // Draw pellets in white
-    ctx.fillStyle = COLORS.WHITE
+    // Draw pellets in white (small dots)
+    ctx.fillStyle = COLORS.PELLET_WHITE
     gameState.pellets.forEach(pellet => {
       ctx.beginPath()
       ctx.arc(
@@ -818,12 +867,12 @@ export default function PacmonGame() {
       ctx.fill()
     })
 
-    // Draw power pellets in white with glow
+    // Draw power pellets in white with glowing effect
     gameState.powerPellets.forEach(pellet => {
       const glowIntensity = Math.sin(Date.now() * 0.01) * 0.3 + 0.7
-      ctx.shadowColor = COLORS.WHITE
+      ctx.shadowColor = COLORS.POWER_PELLET_GLOW
       ctx.shadowBlur = 10 * glowIntensity
-      ctx.fillStyle = COLORS.WHITE
+      ctx.fillStyle = COLORS.PELLET_WHITE
       ctx.beginPath()
       ctx.arc(
         pellet.x * CELL_SIZE + CELL_SIZE / 2,
@@ -836,16 +885,35 @@ export default function PacmonGame() {
       ctx.shadowBlur = 0
     })
 
-    // Draw Pac-Man in purple (as requested)
+    // Draw Pac-Man in purple with mouth animation
     const pacmanAngle = Math.sin(Date.now() * 0.02) * 0.5 + 0.5
     ctx.fillStyle = COLORS.MONAD_PURPLE
     ctx.beginPath()
+    
+    // Determine mouth direction based on movement
+    let startAngle = 0.2 * Math.PI + pacmanAngle * 0.3
+    let endAngle = 1.8 * Math.PI - pacmanAngle * 0.3
+    
+    if (gameState.pacmonDirection.x > 0) { // Right
+      startAngle = 0.2 * Math.PI + pacmanAngle * 0.3
+      endAngle = 1.8 * Math.PI - pacmanAngle * 0.3
+    } else if (gameState.pacmonDirection.x < 0) { // Left
+      startAngle = 1.2 * Math.PI + pacmanAngle * 0.3
+      endAngle = 0.8 * Math.PI - pacmanAngle * 0.3
+    } else if (gameState.pacmonDirection.y > 0) { // Down
+      startAngle = 0.7 * Math.PI + pacmanAngle * 0.3
+      endAngle = 0.3 * Math.PI - pacmanAngle * 0.3
+    } else if (gameState.pacmonDirection.y < 0) { // Up
+      startAngle = 1.7 * Math.PI + pacmanAngle * 0.3
+      endAngle = 1.3 * Math.PI - pacmanAngle * 0.3
+    }
+    
     ctx.arc(
       gameState.pacmon.x * CELL_SIZE + CELL_SIZE / 2,
       gameState.pacmon.y * CELL_SIZE + CELL_SIZE / 2,
       CELL_SIZE / 2 - 2,
-      0.2 * Math.PI + pacmanAngle * 0.3,
-      1.8 * Math.PI - pacmanAngle * 0.3
+      startAngle,
+      endAngle
     )
     ctx.lineTo(
       gameState.pacmon.x * CELL_SIZE + CELL_SIZE / 2,
@@ -853,18 +921,21 @@ export default function PacmonGame() {
     )
     ctx.fill()
 
-    // Draw ghosts with correct colors matching reference image
+    // Draw ghosts with exact colors and enhanced visual effects
     gameState.ghosts.forEach(ghost => {
-      if (ghost.vulnerable) {
+      let ghostColor = ghost.color
+      
+      if (ghost.vulnerable && !ghost.eaten) {
+        // Flash between blue and white when vulnerable
         const flash = Math.sin(Date.now() * 0.02) > 0
-        ctx.fillStyle = flash ? COLORS.BLUE : COLORS.WHITE
+        ghostColor = flash ? COLORS.VULNERABLE_BLUE : COLORS.VULNERABLE_WHITE
       } else if (ghost.eaten) {
-        ctx.fillStyle = COLORS.MONAD_BLACK
-      } else {
-        ctx.fillStyle = ghost.color
+        return // Don't draw eaten ghosts
       }
       
-      // Draw ghost body
+      ctx.fillStyle = ghostColor
+      
+      // Draw ghost body (rounded top)
       ctx.beginPath()
       ctx.arc(
         ghost.position.x * CELL_SIZE + CELL_SIZE / 2,
@@ -881,47 +952,38 @@ export default function PacmonGame() {
       )
       ctx.fill()
       
-      // Draw ghost bottom with wavy edge
+      // Draw wavy bottom edge
       const waveHeight = 3
       ctx.beginPath()
       ctx.moveTo(ghost.position.x * CELL_SIZE + 2, ghost.position.y * CELL_SIZE + CELL_SIZE - 2)
       for (let i = 0; i < CELL_SIZE - 4; i += 3) {
+        const wave = (i % 6 < 3) ? waveHeight : 0
         ctx.lineTo(
           ghost.position.x * CELL_SIZE + 2 + i,
-          ghost.position.y * CELL_SIZE + CELL_SIZE - 2 - (i % 6 < 3 ? waveHeight : 0)
+          ghost.position.y * CELL_SIZE + CELL_SIZE - 2 - wave
         )
       }
       ctx.lineTo(ghost.position.x * CELL_SIZE + CELL_SIZE - 2, ghost.position.y * CELL_SIZE + CELL_SIZE - 2)
       ctx.fill()
       
-      // Draw ghost eyes
+      // Draw ghost eyes (always visible unless eaten)
       if (!ghost.eaten) {
-        ctx.fillStyle = COLORS.WHITE
-        ctx.fillRect(
-          ghost.position.x * CELL_SIZE + 5,
-          ghost.position.y * CELL_SIZE + 5,
-          4,
-          4
-        )
-        ctx.fillRect(
-          ghost.position.x * CELL_SIZE + 11,
-          ghost.position.y * CELL_SIZE + 5,
-          4,
-          4
-        )
+        // White eye background
+        ctx.fillStyle = COLORS.PELLET_WHITE
+        ctx.fillRect(ghost.position.x * CELL_SIZE + 5, ghost.position.y * CELL_SIZE + 5, 4, 4)
+        ctx.fillRect(ghost.position.x * CELL_SIZE + 11, ghost.position.y * CELL_SIZE + 5, 4, 4)
         
-        ctx.fillStyle = COLORS.MONAD_BLACK
+        // Black pupils that follow direction
+        ctx.fillStyle = COLORS.BACKGROUND_BLACK
         ctx.fillRect(
           ghost.position.x * CELL_SIZE + 6 + ghost.direction.x,
           ghost.position.y * CELL_SIZE + 6 + ghost.direction.y,
-          2,
-          2
+          2, 2
         )
         ctx.fillRect(
           ghost.position.x * CELL_SIZE + 12 + ghost.direction.x,
           ghost.position.y * CELL_SIZE + 6 + ghost.direction.y,
-          2,
-          2
+          2, 2
         )
       }
     })
@@ -931,7 +993,7 @@ export default function PacmonGame() {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
       ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
       
-      ctx.fillStyle = COLORS.YELLOW
+      ctx.fillStyle = COLORS.UI_YELLOW
       ctx.font = 'bold 24px Arial'
       ctx.textAlign = 'center'
       ctx.fillText(
@@ -941,7 +1003,7 @@ export default function PacmonGame() {
       )
       
       if (gameState.showBonusMessage) {
-        ctx.fillStyle = COLORS.WHITE
+        ctx.fillStyle = COLORS.PELLET_WHITE
         ctx.font = '16px Arial'
         ctx.fillText(
           `Bonus: ${gameState.bonusScore} points`,
@@ -950,7 +1012,7 @@ export default function PacmonGame() {
         )
       }
       
-      ctx.fillStyle = COLORS.YELLOW
+      ctx.fillStyle = COLORS.UI_YELLOW
       ctx.font = '14px Arial'
       ctx.fillText(
         `Get ready for Level ${gameState.currentLevel + 1}...`,
@@ -959,31 +1021,31 @@ export default function PacmonGame() {
       )
     }
 
-    // Show "Ready!" message at start
+    // Show "Ready!" message at level start
     if (gameState.gameStatus === 'playing' && Date.now() - gameState.levelStartTime < 2000) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
       ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
       
-      ctx.fillStyle = COLORS.YELLOW
+      ctx.fillStyle = COLORS.UI_YELLOW
       ctx.font = 'bold 24px Arial'
       ctx.textAlign = 'center'
-      ctx.fillText(
-        'Ready!',
-        GAME_WIDTH / 2,
-        GAME_HEIGHT / 2
-      )
+      ctx.fillText('Ready!', GAME_WIDTH / 2, GAME_HEIGHT / 2)
     }
   }, [gameState])
 
-  // Mobile touch controls
+  // Enhanced mobile controls
   const handleDirectionButton = (direction: { x: number; y: number }) => {
     if (gameState.gameStatus !== 'playing') return
     
     const maze = getMazeForLevel(gameState.currentLevel)
-    const nextX = gameState.pacmon.x + direction.x
-    const nextY = gameState.pacmon.y + direction.y
+    let nextX = gameState.pacmon.x + direction.x
+    let nextY = gameState.pacmon.y + direction.y
 
-    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && maze[nextY][nextX] !== 1) {
+    // Handle tunnel wrapping
+    if (nextX < 0) nextX = GRID_SIZE - 1
+    if (nextX >= GRID_SIZE) nextX = 0
+
+    if (nextY >= 0 && nextY < GRID_SIZE && maze[nextY][nextX] !== 1) {
       setGameState(prev => ({ ...prev, pacmonDirection: direction }))
     }
   }
@@ -1010,6 +1072,7 @@ export default function PacmonGame() {
     }))
     initializeLevel(1)
     soundManagerRef.current?.playBackgroundMusic()
+    soundManagerRef.current?.play('gameStart')
   }
 
   const saveScoreOnChain = async () => {
@@ -1070,7 +1133,8 @@ export default function PacmonGame() {
   return (
     
       
-        {/* Clean Start Screen */}
+        
+        {/* Cleaned Start Screen - Only essential elements as requested */}
         {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
           
             PACMON
@@ -1123,7 +1187,7 @@ export default function PacmonGame() {
           
         )}
 
-        {/* Leaderboard Screen */}
+        {/* Leaderboard Screen - Shows only real scores */}
         {gameState.showLeaderboard && (
           
             Leaderboard
@@ -1154,12 +1218,12 @@ export default function PacmonGame() {
           
         )}
 
-        {/* Game Canvas */}
+        {/* Game Canvas with Enhanced HUD */}
         {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'levelTransition') && (
           
             
             
-            {/* Game HUD */}
+            {/* Enhanced Game HUD */}
             
               Score: {gameState.score.toLocaleString()}
               Level: {gameState.currentLevel}
@@ -1174,33 +1238,37 @@ export default function PacmonGame() {
               
             )}
             
-            {/* Mobile Controls */}
+            {/* Enhanced Mobile Controls */}
             
+              
                handleDirectionButton({ x: 0, y: -1 })}
                 onClick={() => handleDirectionButton({ x: 0, y: -1 })}
-                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg active:bg-gray-500"
               >
                 ↑
               
               
-                 handleDirectionButton({ x: -1, y: 0 })}
-                  onClick={() => handleDirectionButton({ x: -1, y: 0 })}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
-                >
-                  ←
-                
-                 handleDirectionButton({ x: 1, y: 0 })}
-                  onClick={() => handleDirectionButton({ x: 1, y: 0 })}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
-                >
-                  →
-                
+              
+               handleDirectionButton({ x: -1, y: 0 })}
+                onClick={() => handleDirectionButton({ x: -1, y: 0 })}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg active:bg-gray-500"
+              >
+                ←
+              
+               handleDirectionButton({ x: 1, y: 0 })}
+                onClick={() => handleDirectionButton({ x: 1, y: 0 })}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg active:bg-gray-500"
+              >
+                →
+              
+              
               
                handleDirectionButton({ x: 0, y: 1 })}
                 onClick={() => handleDirectionButton({ x: 0, y: 1 })}
-                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg active:bg-gray-500"
               >
                 ↓
+              
               
             
             
@@ -1217,7 +1285,7 @@ export default function PacmonGame() {
           
         )}
 
-        {/* Game Over Screen */}
+        {/* Enhanced Game Over Screen */}
         {gameState.gameStatus === 'postGame' && (
           
             Game Over
