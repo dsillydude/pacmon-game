@@ -1,26 +1,25 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+
+import { Providers } from '@/components/providers'
 import './globals.css'
-import { FarcasterProvider } from '@/components/farcaster-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Pacmon - Monad Pacman Game',
-  description: 'Play Pacmon, a Pacman-style game with Monad theming on Farcaster',
+  title: 'Monad Farcaster MiniApp Template',
+  description: 'A template for building mini-apps on Farcaster and Monad',
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <FarcasterProvider>
-          {children}
-        </FarcasterProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
