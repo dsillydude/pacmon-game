@@ -1,60 +1,48 @@
-import type { Context } from '@farcaster/frame-sdk'
-import sdk from '@farcaster/frame-sdk'
-import { useQuery } from '@tanstack/react-query'
-import { type ReactNode, createContext, useContext } from 'react'
+'use client'
 
-interface FrameContextValue {
-  context: Context.FrameContext | undefined
+import { createContext, useContext, useEffect, useState } from 'react'
+import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
+
+interface FrameContext {
+  context: any
   isLoading: boolean
   isSDKLoaded: boolean
-  isEthProviderAvailable: boolean
-  actions: typeof sdk.actions | undefined
 }
 
-const FrameProviderContext = createContext<FrameContextValue | undefined>(
-  undefined,
-)
+const FrameContext = createContext<FrameContext>({
+  context: null,
+  isLoading: true,
+  isSDKLoaded: false
+})
 
-export function useFrame() {
-  const context = useContext(FrameProviderContext)
-  if (context === undefined) {
-    throw new Error('useFrame must be used within a FrameProvider')
-  }
-  return context
-}
+export function FarcasterProvider({ children }: { children: React.ReactNode }) {
+  const [context, setContext] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false)
 
-interface FrameProviderProps {
-  children: ReactNode
-}
-
-export function FrameProvider({ children }: FrameProviderProps) {
-  const farcasterContextQuery = useQuery({
-    queryKey: ['farcaster-context'],
-    queryFn: async () => {
-      const context = await sdk.context
+  useEffect(() => {
+    const initFrame = async () => {
       try {
-        await sdk.actions.ready()
-        return { context, isReady: true }
-      } catch (err) {
-        console.error('SDK initialization error:', err)
+        if (typeof window !== 'undefined') {
+          const frameContext = await farcasterFrame.getContext()
+          setContext(frameContext)
+          setIsSDKLoaded(true)
+        }
+      } catch (error) {
+        console.log('Farcaster SDK not available:', error)
+      } finally {
+        setIsLoading(false)
       }
-      return { context, isReady: false }
-    },
-  })
+    }
 
-  const isReady = farcasterContextQuery.data?.isReady ?? false
+    initFrame()
+  }, [])
 
   return (
-    <FrameProviderContext.Provider
-      value={{
-        context: farcasterContextQuery.data?.context,
-        actions: sdk.actions,
-        isLoading: farcasterContextQuery.isPending,
-        isSDKLoaded: isReady && Boolean(farcasterContextQuery.data?.context),
-        isEthProviderAvailable: Boolean(sdk.wallet.ethProvider),
-      }}
-    >
+    <FrameContext.Provider value={{ context, isLoading, isSDKLoaded }}>
       {children}
-    </FrameProviderContext.Provider>
+    </FrameContext.Provider>
   )
 }
+
+export const useFrame = () => useContext(FrameContext)
