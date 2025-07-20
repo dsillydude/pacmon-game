@@ -14,18 +14,18 @@ import {
   usePublicClient,
 } from 'wagmi'
 
-// Monad color palette
+// Classic Pac-Man color palette matching the reference image
 const COLORS = {
-  MONAD_PURPLE: '#836EF9',
-  MONAD_BLUE: '#200052',
-  MONAD_BERRY: '#A0055D',
-  MONAD_OFF_WHITE: '#FBFAF9',
-  MONAD_BLACK: '#0E100F',
-  WHITE: '#FFFFFF',
-  GREEN: '#00FF00',
-  ORANGE: '#FFA500',
-  YELLOW: '#FFFF00',
-  RED: '#FF0000'
+  MONAD_PURPLE: '#836EF9',  // Keep Pac-Man purple as requested
+  MONAD_BLUE: '#0000FF',    // Classic blue for maze walls
+  MONAD_BLACK: '#000000',   // Pure black background
+  WHITE: '#FFFFFF',         // White pellets
+  YELLOW: '#FFFF00',        // Yellow for UI text
+  RED: '#FF0000',           // Red for Blinky
+  PINK: '#FFB6C1',          // Pink for Pinky  
+  ORANGE: '#FFA500',        // Orange for Clyde
+  BLUE: '#0000FF',          // Blue for Inky
+  GREEN: '#00FF00'
 }
 
 // Game constants
@@ -33,7 +33,6 @@ const GRID_SIZE = 20
 const CELL_SIZE = 20
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE
 const GAME_HEIGHT = GRID_SIZE * CELL_SIZE
-
 
 type LevelConfig = {
   gameSpeed: number;
@@ -45,50 +44,50 @@ type LevelConfig = {
   ghostCount: number;
 };
 
-// Level configuration
+// Progressive level configuration - starts much easier
 const LEVEL_CONFIG: { [key: number]: LevelConfig } = {
   1: { 
-    gameSpeed: 250, 
+    gameSpeed: 300,    // Slower for beginners
     ghostSpeed: 1, 
     pelletValue: 10, 
     powerPelletValue: 50, 
-    powerDuration: 35,
+    powerDuration: 40,  // Longer power duration
     bonusMultiplier: 1,
-    ghostCount: 3
+    ghostCount: 1       // Start with just 1 ghost
   },
   2: { 
-    gameSpeed: 220, 
+    gameSpeed: 250, 
     ghostSpeed: 1, 
     pelletValue: 15, 
     powerPelletValue: 75, 
-    powerDuration: 30,
+    powerDuration: 35,
     bonusMultiplier: 1.2,
-    ghostCount: 4
+    ghostCount: 2       // Add second ghost
   },
   3: { 
-    gameSpeed: 200, 
+    gameSpeed: 220, 
     ghostSpeed: 1, 
     pelletValue: 20, 
     powerPelletValue: 100, 
-    powerDuration: 25,
+    powerDuration: 30,
     bonusMultiplier: 1.5,
-    ghostCount: 4
+    ghostCount: 3       // Add third ghost
   },
   4: { 
-    gameSpeed: 180, 
+    gameSpeed: 200, 
     ghostSpeed: 1, 
     pelletValue: 25, 
     powerPelletValue: 125, 
-    powerDuration: 20,
+    powerDuration: 25,
     bonusMultiplier: 1.8,
-    ghostCount: 4
+    ghostCount: 4       // Full ghost count
   },
   5: { 
-    gameSpeed: 160, 
+    gameSpeed: 180, 
     ghostSpeed: 1, 
     pelletValue: 30, 
     powerPelletValue: 150, 
-    powerDuration: 15,
+    powerDuration: 20,
     bonusMultiplier: 2,
     ghostCount: 4
   }
@@ -187,7 +186,6 @@ class SoundManager {
       this.sounds[key] = audio
     })
 
-    // Set background music to loop
     if (this.sounds.backgroundMusic) {
       this.sounds.backgroundMusic.loop = true
       this.sounds.backgroundMusic.volume = 0.3
@@ -236,9 +234,53 @@ class SoundManager {
   }
 }
 
-// Multiple maze layouts for different levels
+// Progressive maze layouts - starting simple and getting more complex
 const MAZE_LAYOUTS = {
-  1: [
+  1: [ // Level 1: Very simple, open maze with minimal walls
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,1],
+    [1,3,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,2,3,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,0,0,0,0,2,2,2,2,2,2,2,1], // Ghost house
+    [1,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1], // Pac-Man starts here
+    [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
+    [1,2,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ],
+  2: [ // Level 2: Add some internal walls
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+    [1,3,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,3,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,1,1,1,2,1,2,1,1,1,1,2,1,2,1,1,1,2,1],
+    [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
+    [0,0,0,0,1,2,1,2,0,0,0,0,2,1,2,1,0,0,0,0],
+    [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
+    [2,2,2,2,2,2,2,2,1,0,0,1,2,2,2,2,2,2,2,2],
+    [1,1,1,1,1,2,1,2,1,0,0,1,2,1,2,1,1,1,1,1],
+    [0,0,0,0,1,2,1,2,2,2,2,2,2,1,2,1,0,0,0,0],
+    [1,1,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+    [1,3,2,2,1,2,2,2,2,2,2,2,2,2,2,1,2,2,3,1],
+    [1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,2,1,1,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ],
+  3: [ // Level 3+: Full complexity - classic Pac-Man maze design
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
     [1,3,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,3,1],
@@ -259,64 +301,20 @@ const MAZE_LAYOUTS = {
     [1,2,2,2,2,2,1,2,2,1,1,2,2,1,2,2,2,2,2,1],
     [1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-  ],
-  2: [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
-    [1,3,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,3,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,2,1,2,1,1,1,1,1,1,2,1,2,1,1,2,1],
-    [1,2,2,2,2,1,2,2,2,1,1,2,2,2,1,2,2,2,2,1],
-    [1,1,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,1],
-    [0,0,0,1,2,1,2,2,2,2,2,2,2,2,1,2,1,0,0,0],
-    [1,1,1,1,2,1,2,1,0,0,0,1,2,1,2,1,1,1,1,1],
-    [2,2,2,2,2,2,2,1,0,0,0,1,2,2,2,2,2,2,2,2],
-    [1,1,1,1,2,1,2,1,0,0,0,1,2,1,2,1,1,1,1,1],
-    [0,0,0,1,2,1,2,2,2,2,2,2,2,2,1,2,1,0,0,0],
-    [1,1,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,1],
-    [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,1,1,1,2,2,1,1,2,2,1,1,1,1,1,2,1],
-    [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
-    [1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-  ],
-  3: [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,2,1],
-    [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
-    [1,2,2,2,1,1,2,1,1,2,2,1,1,2,1,1,2,2,2,1],
-    [1,1,1,2,1,1,2,1,1,2,2,1,1,2,1,1,2,1,1,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,1,1,2,1,1,2,1,1,2,2,1,1,2,1,1,2,1,1,1],
-    [1,2,2,2,1,1,2,1,1,2,2,1,1,2,1,1,2,2,2,1],
-    [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
-    [1,2,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,2,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
   ]
 }
 
 // Function to get maze for current level
 const getMazeForLevel = (level: number) => {
-  const mazeKey = Math.min(level, 3) // Use maze 3 for levels 4 and above
-  return MAZE_LAYOUTS[mazeKey as keyof typeof MAZE_LAYOUTS] || MAZE_LAYOUTS[1]
-
+  if (level === 1) return MAZE_LAYOUTS[1]
+  if (level === 2) return MAZE_LAYOUTS[2]
+  return MAZE_LAYOUTS[3] // Use complex maze for level 3+
 }
 
 export default function PacmonGame() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const gameLoopRef = useRef<NodeJS.Timeout | null>(null)
-  const soundManagerRef = useRef<SoundManager | null>(null)
+  const canvasRef = useRef(null)
+  const gameLoopRef = useRef(null)
+  const soundManagerRef = useRef(null)
   const { isEthProviderAvailable } = useFrame()
   const { isConnected, address, chainId } = useAccount()
   const { disconnect } = useDisconnect()
@@ -326,7 +324,7 @@ export default function PacmonGame() {
   const publicClient = usePublicClient()
   const [scoreSaved, setScoreSaved] = useState(false)
   
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState({
     pacmon: { x: 9, y: 15 },
     pacmonDirection: { x: 0, y: 0 },
     ghosts: [],
@@ -341,7 +339,7 @@ export default function PacmonGame() {
     totalPlayers: 0,
     totalPlays: 0,
     userOnChainScore: null,
-    onChainScores: [],
+    onChainScores: [], // No mock data - will be empty initially
     showLeaderboard: false,
     currentLevel: 1,
     levelStats: [],
@@ -350,7 +348,7 @@ export default function PacmonGame() {
     consecutiveLevels: 0,
     bonusScore: 0,
     showBonusMessage: false,
-    gameSpeed: 250
+    gameSpeed: 300
   })
 
   // Initialize sound manager
@@ -358,30 +356,20 @@ export default function PacmonGame() {
     soundManagerRef.current = new SoundManager()
   }, [])
 
-  // Load on-chain scores and user's score
+  // Load real on-chain scores (no mock data)
   const loadOnChainScores = useCallback(async () => {
     if (!publicClient || !address) return
 
     try {
-      // Simulate loading on-chain scores (in a real implementation, you would query the blockchain)
-      const mockOnChainScores: OnChainScore[] = [
-        { address: '0x1234567890123456789012345678901234567890', score: 5450, timestamp: Date.now() - 86400000 },
-        { address: '0x9876543210987654321098765432109876543210', score: 3890, timestamp: Date.now() - 172800000 },
-        { address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd', score: 2650, timestamp: Date.now() - 259200000 },
-        { address: '0x1111222233334444555566667777888899990000', score: 1920, timestamp: Date.now() - 345600000 },
-        { address: '0x0000999988887777666655554444333322221111', score: 1200, timestamp: Date.now() - 432000000 }
-      ]
-
-      // Find user's on-chain score
-      const userScore = mockOnChainScores.find(score => 
-        score.address.toLowerCase() === address.toLowerCase()
-      )
+      // In a real implementation, query the blockchain for actual scores
+      // For now, start with empty array - no mock data
+      const realOnChainScores: OnChainScore[] = []
 
       setGameState(prev => ({
         ...prev,
-        onChainScores: mockOnChainScores.sort((a, b) => b.score - a.score),
-        userOnChainScore: userScore?.score || null,
-        highScore: mockOnChainScores[0]?.score || 0
+        onChainScores: realOnChainScores,
+        userOnChainScore: null,
+        highScore: realOnChainScores[0]?.score || 0
       }))
     } catch (error) {
       console.error('Error loading on-chain scores:', error)
@@ -395,31 +383,35 @@ export default function PacmonGame() {
     }
   }, [isConnected, address, chainId, loadOnChainScores])
 
-  // Initialize level
+  // Initialize level with progressive difficulty
   const initializeLevel = useCallback((level: number) => {
     const maze = getMazeForLevel(level)
     const pellets: Position[] = []
     const powerPellets: Position[] = []
     
+    // Progressive pellet distribution
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (maze[y][x] === 2) {
+          // For level 1, only add every 3rd pellet to make it easier
+          if (level === 1 && Math.random() > 0.4) continue
           pellets.push({ x, y })
         } else if (maze[y][x] === 3) {
+          // Progressive power pellets - level 1 gets only 2
+          if (level === 1 && powerPellets.length >= 2) continue
           powerPellets.push({ x, y })
         }
       }
     }
 
     const levelConfig = LEVEL_CONFIG[Math.min(level, 5)] || LEVEL_CONFIG[5]
-    const ghostCount = Math.min(levelConfig.ghostCount, 4)
     
-    // Initialize ghosts based on level
+    // Progressive ghost initialization
     const ghosts: Ghost[] = []
     const ghostTypes = ['blinky', 'pinky', 'inky', 'clyde']
-    const ghostColors = [COLORS.MONAD_BERRY, COLORS.MONAD_PURPLE, COLORS.MONAD_BLUE, COLORS.MONAD_OFF_WHITE]
+    const ghostColors = [COLORS.RED, COLORS.PINK, COLORS.BLUE, COLORS.ORANGE] // Match reference image
     
-    for (let i = 0; i < ghostCount; i++) {
+    for (let i = 0; i < levelConfig.ghostCount; i++) {
       ghosts.push({
         id: i + 1,
         position: { x: 9 + (i % 2), y: 9 + Math.floor(i / 2) },
@@ -509,19 +501,17 @@ export default function PacmonGame() {
             newState.pacmonDirection = { x: 0, y: 0 }
           }
 
-          // Move ghosts with level-appropriate speed
+          // Move ghosts with level-appropriate AI
           newState.ghosts = newState.ghosts.map(ghost => {
-            // Skip movement if ghost hasn't reached its move time yet
             if (currentTime - ghost.lastMoveTime < (200 / ghost.speed)) {
               return ghost
             }
 
             if (ghost.eaten) {
-              // Eaten ghosts return to ghost house
+              // Return to ghost house
               if (ghost.position.x === 9 && ghost.position.y === 9) {
                 return { ...ghost, eaten: false, vulnerable: false, lastMoveTime: currentTime }
               }
-              // Simple path back to ghost house
               const target = { x: 9, y: 9 }
               const dx = target.x - ghost.position.x
               const dy = target.y - ghost.position.y
@@ -542,7 +532,7 @@ export default function PacmonGame() {
 
             let targetTile: Position
             if (newState.powerMode) {
-              // Enhanced frightened mode: more unpredictable movement
+              // Frightened mode - run away from Pac-Man
               const directions = [
                 { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
               ]
@@ -556,94 +546,61 @@ export default function PacmonGame() {
                        maze[testPos.y][testPos.x] !== 1
               })
               
-              // Add some bias to move away from Pacmon
-              const pacmonDistance = Math.sqrt(
-                Math.pow(ghost.position.x - newState.pacmon.x, 2) +
-                Math.pow(ghost.position.y - newState.pacmon.y, 2)
-              )
-              
-              let selectedDirection
-              if (pacmonDistance < 5 && Math.random() < 0.7) {
-                // Try to move away from Pacmon
-                selectedDirection = validDirections.reduce((best, dir) => {
-                  const testPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
-                  const testDistance = Math.sqrt(
-                    Math.pow(testPos.x - newState.pacmon.x, 2) +
-                    Math.pow(testPos.y - newState.pacmon.y, 2)
-                  )
-                  return testDistance > Math.sqrt(
-                    Math.pow(ghost.position.x + best.x - newState.pacmon.x, 2) +
-                    Math.pow(ghost.position.y + best.y - newState.pacmon.y, 2)
-                  ) ? dir : best
-                }, validDirections[0])
-              } else {
-                selectedDirection = validDirections[Math.floor(Math.random() * validDirections.length)]
-              }
+              // Try to move away from Pac-Man
+              const selectedDirection = validDirections.reduce((best, dir) => {
+                const testPos = { x: ghost.position.x + dir.x, y: ghost.position.y + dir.y }
+                const testDistance = Math.sqrt(
+                  Math.pow(testPos.x - newState.pacmon.x, 2) +
+                  Math.pow(testPos.y - newState.pacmon.y, 2)
+                )
+                const bestDistance = Math.sqrt(
+                  Math.pow(ghost.position.x + best.x - newState.pacmon.x, 2) +
+                  Math.pow(ghost.position.y + best.y - newState.pacmon.y, 2)
+                )
+                return testDistance > bestDistance ? dir : best
+              }, validDirections[0] || { x: 0, y: 0 })
               
               targetTile = { 
                 x: ghost.position.x + selectedDirection.x, 
                 y: ghost.position.y + selectedDirection.y 
               }
             } else {
-              // Enhanced AI for higher levels
-              const aggressionLevel = Math.min(newState.currentLevel / 2, 2)
-              
+              // Normal AI - simpler for early levels
               switch (ghost.type) {
                 case 'blinky':
-                  // More aggressive at higher levels
-                  if (newState.currentLevel >= 3) {
-                    const distance = Math.sqrt(
-                      Math.pow(ghost.position.x - newState.pacmon.x, 2) +
-                      Math.pow(ghost.position.y - newState.pacmon.y, 2)
-                    )
-                    if (distance < 8) {
-                      targetTile = newState.pacmon
-                    } else {
-                      targetTile = {
-                        x: newState.pacmon.x + newState.pacmonDirection.x * 2,
-                        y: newState.pacmon.y + newState.pacmonDirection.y * 2
-                      }
-                    }
-                  } else {
-                    targetTile = newState.pacmon
-                  }
+                  targetTile = newState.pacmon // Always target Pac-Man directly
                   break
                 case 'pinky':
-                  // Predict further ahead at higher levels
-                  const lookAhead = Math.min(4 + newState.currentLevel, 8)
                   targetTile = {
-                    x: newState.pacmon.x + newState.pacmonDirection.x * lookAhead,
-                    y: newState.pacmon.y + newState.pacmonDirection.y * lookAhead
+                    x: newState.pacmon.x + newState.pacmonDirection.x * 4,
+                    y: newState.pacmon.y + newState.pacmonDirection.y * 4
                   }
                   break
                 case 'inky':
-                  // More complex behavior at higher levels
                   const blinky = newState.ghosts.find(g => g.type === 'blinky')
                   if (blinky) {
                     const pacmanAhead = {
-                      x: newState.pacmon.x + newState.pacmonDirection.x * (2 + aggressionLevel),
-                      y: newState.pacmon.y + newState.pacmonDirection.y * (2 + aggressionLevel)
+                      x: newState.pacmon.x + newState.pacmonDirection.x * 2,
+                      y: newState.pacmon.y + newState.pacmonDirection.y * 2
                     }
                     const vector = {
                       x: pacmanAhead.x - blinky.position.x,
                       y: pacmanAhead.y - blinky.position.y
                     }
                     targetTile = { 
-                      x: blinky.position.x + vector.x * (2 + aggressionLevel), 
-                      y: blinky.position.y + vector.y * (2 + aggressionLevel) 
+                      x: blinky.position.x + vector.x * 2, 
+                      y: blinky.position.y + vector.y * 2 
                     }
                   } else {
                     targetTile = newState.pacmon
                   }
                   break
                 case 'clyde':
-                  // More unpredictable at higher levels
                   const distance = Math.sqrt(
                     Math.pow(ghost.position.x - newState.pacmon.x, 2) +
                     Math.pow(ghost.position.y - newState.pacmon.y, 2)
                   )
-                  const threshold = Math.max(8 - newState.currentLevel, 4)
-                  if (distance < threshold) {
+                  if (distance < 8) {
                     targetTile = ghost.scatterTarget
                   } else {
                     targetTile = newState.pacmon
@@ -654,7 +611,7 @@ export default function PacmonGame() {
               }
             }
 
-            // Enhanced pathfinding
+            // Simple pathfinding
             const possibleDirections = [
               { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
             ]
@@ -692,7 +649,7 @@ export default function PacmonGame() {
               if (ghost.vulnerable) {
                 // Eat ghost
                 const basePoints = 200
-                const bonusPoints = Math.floor(basePoints * levelConfig.bonusMultiplier * (newState.currentLevel * 0.5))
+                const bonusPoints = Math.floor(basePoints * levelConfig.bonusMultiplier)
                 newState.score += bonusPoints
                 ghost.eaten = true
                 ghost.vulnerable = false
@@ -730,11 +687,9 @@ export default function PacmonGame() {
           
           // Check level complete
           if (newState.pellets.length === 0 && newState.powerPellets.length === 0) {
-            // Level complete!
             newState.gameStatus = 'levelTransition'
             newState.consecutiveLevels += 1
             
-            // Calculate level completion bonus
             const timeBonus = Math.max(0, 1000 - Math.floor((Date.now() - newState.levelStartTime) / 1000) * 10)
             const levelBonus = newState.currentLevel * 500
             const totalBonus = timeBonus + levelBonus
@@ -743,25 +698,14 @@ export default function PacmonGame() {
             newState.bonusScore = totalBonus
             newState.showBonusMessage = true
             
-            // Add level stats
-            newState.levelStats.push({
-              level: newState.currentLevel,
-              score: newState.score,
-              pelletsCollected: newState.totalPelletsInLevel,
-              powerPelletsCollected: 4, // Assuming 4 power pellets per level
-              ghostsEaten: 0, // Can be tracked separately
-              timeSpent: Date.now() - newState.levelStartTime
-            })
-            
-            // Check for extra life
-            if (newState.currentLevel % 2 === 0 && newState.lives < 5) {
+            if (newState.currentLevel % 3 === 0 && newState.lives < 5) {
               newState.lives += 1
               soundManagerRef.current?.play('extraLife')
             }
             
             soundManagerRef.current?.play('levelComplete')
             
-            // Auto-advance to next level after a delay
+            // Auto-advance to next level
             setTimeout(() => {
               setGameState(prev => {
                 const nextLevel = prev.currentLevel + 1
@@ -772,7 +716,6 @@ export default function PacmonGame() {
                 return newState
               })
               
-              // Initialize next level
               setTimeout(() => {
                 initializeLevel(newState.currentLevel + 1)
               }, 100)
@@ -823,7 +766,6 @@ export default function PacmonGame() {
         return
     }
 
-    // Only update direction if the new direction is valid
     const maze = getMazeForLevel(gameState.currentLevel)
     const nextX = gameState.pacmon.x + newDirection.x
     const nextY = gameState.pacmon.y + newDirection.y
@@ -838,7 +780,7 @@ export default function PacmonGame() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [handleKeyPress])
 
-  // Enhanced render game
+  // Render game with classic Pac-Man colors
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -848,11 +790,11 @@ export default function PacmonGame() {
 
     const maze = getMazeForLevel(gameState.currentLevel)
 
-    // Clear canvas
+    // Clear canvas with pure black background
     ctx.fillStyle = COLORS.MONAD_BLACK
     ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
 
-    // Draw maze
+    // Draw maze walls in blue
     ctx.fillStyle = COLORS.MONAD_BLUE
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -862,8 +804,8 @@ export default function PacmonGame() {
       }
     }
 
-    // Draw pellets
-    ctx.fillStyle = COLORS.MONAD_OFF_WHITE
+    // Draw pellets in white
+    ctx.fillStyle = COLORS.WHITE
     gameState.pellets.forEach(pellet => {
       ctx.beginPath()
       ctx.arc(
@@ -876,12 +818,12 @@ export default function PacmonGame() {
       ctx.fill()
     })
 
-    // Draw power pellets with enhanced glow effect
+    // Draw power pellets in white with glow
     gameState.powerPellets.forEach(pellet => {
       const glowIntensity = Math.sin(Date.now() * 0.01) * 0.3 + 0.7
-      ctx.shadowColor = COLORS.MONAD_PURPLE
+      ctx.shadowColor = COLORS.WHITE
       ctx.shadowBlur = 10 * glowIntensity
-      ctx.fillStyle = COLORS.MONAD_PURPLE
+      ctx.fillStyle = COLORS.WHITE
       ctx.beginPath()
       ctx.arc(
         pellet.x * CELL_SIZE + CELL_SIZE / 2,
@@ -894,7 +836,7 @@ export default function PacmonGame() {
       ctx.shadowBlur = 0
     })
 
-    // Draw Pacmon with enhanced animation
+    // Draw Pac-Man in purple (as requested)
     const pacmanAngle = Math.sin(Date.now() * 0.02) * 0.5 + 0.5
     ctx.fillStyle = COLORS.MONAD_PURPLE
     ctx.beginPath()
@@ -911,18 +853,18 @@ export default function PacmonGame() {
     )
     ctx.fill()
 
-    // Draw ghosts with enhanced effects
+    // Draw ghosts with correct colors matching reference image
     gameState.ghosts.forEach(ghost => {
       if (ghost.vulnerable) {
-        // Flashing effect when vulnerable
         const flash = Math.sin(Date.now() * 0.02) > 0
-        ctx.fillStyle = flash ? COLORS.MONAD_BERRY : COLORS.MONAD_BLUE
+        ctx.fillStyle = flash ? COLORS.BLUE : COLORS.WHITE
       } else if (ghost.eaten) {
         ctx.fillStyle = COLORS.MONAD_BLACK
       } else {
         ctx.fillStyle = ghost.color
       }
       
+      // Draw ghost body
       ctx.beginPath()
       ctx.arc(
         ghost.position.x * CELL_SIZE + CELL_SIZE / 2,
@@ -939,45 +881,57 @@ export default function PacmonGame() {
       )
       ctx.fill()
       
-      // Enhanced ghost eyes
+      // Draw ghost bottom with wavy edge
+      const waveHeight = 3
+      ctx.beginPath()
+      ctx.moveTo(ghost.position.x * CELL_SIZE + 2, ghost.position.y * CELL_SIZE + CELL_SIZE - 2)
+      for (let i = 0; i < CELL_SIZE - 4; i += 3) {
+        ctx.lineTo(
+          ghost.position.x * CELL_SIZE + 2 + i,
+          ghost.position.y * CELL_SIZE + CELL_SIZE - 2 - (i % 6 < 3 ? waveHeight : 0)
+        )
+      }
+      ctx.lineTo(ghost.position.x * CELL_SIZE + CELL_SIZE - 2, ghost.position.y * CELL_SIZE + CELL_SIZE - 2)
+      ctx.fill()
+      
+      // Draw ghost eyes
       if (!ghost.eaten) {
         ctx.fillStyle = COLORS.WHITE
         ctx.fillRect(
           ghost.position.x * CELL_SIZE + 5,
           ghost.position.y * CELL_SIZE + 5,
-          3,
-          3
+          4,
+          4
         )
         ctx.fillRect(
-          ghost.position.x * CELL_SIZE + 12,
+          ghost.position.x * CELL_SIZE + 11,
           ghost.position.y * CELL_SIZE + 5,
-          3,
-          3
+          4,
+          4
         )
         
-        // Pupil direction based on movement
         ctx.fillStyle = COLORS.MONAD_BLACK
         ctx.fillRect(
-          ghost.position.x * CELL_SIZE + 5 + ghost.direction.x,
-          ghost.position.y * CELL_SIZE + 5 + ghost.direction.y,
-          1,
-          1
+          ghost.position.x * CELL_SIZE + 6 + ghost.direction.x,
+          ghost.position.y * CELL_SIZE + 6 + ghost.direction.y,
+          2,
+          2
         )
         ctx.fillRect(
           ghost.position.x * CELL_SIZE + 12 + ghost.direction.x,
-          ghost.position.y * CELL_SIZE + 5 + ghost.direction.y,
-          1,
-          1
+          ghost.position.y * CELL_SIZE + 6 + ghost.direction.y,
+          2,
+          2
         )
       }
     })
 
     // Draw level transition overlay
     if (gameState.gameStatus === 'levelTransition') {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
       ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
       
-      ctx.fillStyle = COLORS.MONAD_PURPLE
+      ctx.fillStyle = COLORS.YELLOW
       ctx.font = 'bold 24px Arial'
       ctx.textAlign = 'center'
       ctx.fillText(
@@ -987,135 +941,44 @@ export default function PacmonGame() {
       )
       
       if (gameState.showBonusMessage) {
-        ctx.fillStyle = COLORS.MONAD_BERRY
-        ctx.font = 'bold 16px Arial'
+        ctx.fillStyle = COLORS.WHITE
+        ctx.font = '16px Arial'
         ctx.fillText(
           `Bonus: ${gameState.bonusScore} points`,
           GAME_WIDTH / 2,
-          GAME_HEIGHT / 2 - 10
+          GAME_HEIGHT / 2
         )
       }
       
-      ctx.fillStyle = COLORS.MONAD_OFF_WHITE
+      ctx.fillStyle = COLORS.YELLOW
       ctx.font = '14px Arial'
       ctx.fillText(
-        `Get ready for Level ${gameState.currentLevel + 1}!`,
+        `Get ready for Level ${gameState.currentLevel + 1}...`,
         GAME_WIDTH / 2,
-        GAME_HEIGHT / 2 + 20
+        GAME_HEIGHT / 2 + 40
+      )
+    }
+
+    // Show "Ready!" message at start
+    if (gameState.gameStatus === 'playing' && Date.now() - gameState.levelStartTime < 2000) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
+      
+      ctx.fillStyle = COLORS.YELLOW
+      ctx.font = 'bold 24px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText(
+        'Ready!',
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2
       )
     }
   }, [gameState])
 
-  const handleWalletConnect = async () => {
-    if (!isConnected) {
-      if (isEthProviderAvailable) {
-        connect({ connector: farcasterFrame() })
-      }
-      return
-    }
-
-    if (chainId !== monadTestnet.id) {
-      switchChain({ chainId: monadTestnet.id })
-      return
-    }
-
-    // Start the game after wallet is connected and on correct chain
-    setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
-    soundManagerRef.current?.playBackgroundMusic()
-  }
-
-  const handleScoreSubmission = async () => {
-    if (!isConnected || chainId !== monadTestnet.id) {
-      return
-    }
-
-    try {
-      const scoreData = toHex(gameState.score, { size: 32 })
-      const timestampData = toHex(Math.floor(Date.now() / 1000), { size: 32 })
-      
-      await sendTransaction({
-        to: SCORE_CONTRACT_ADDRESS,
-        value: parseEther("0.015"),
-        data: `0x${scoreData.slice(2)}${timestampData.slice(2)}`
-      })
-
-      setGameState(prev => ({
-        ...prev,
-        userOnChainScore: prev.score,
-        onChainScores: [
-          { address: address!, score: prev.score, timestamp: Date.now() },
-          ...prev.onChainScores.filter(s => s.address.toLowerCase() !== address!.toLowerCase())
-        ].sort((a, b) => b.score - a.score)
-      }))
-      setScoreSaved(true)
-
-    } catch (error) {
-      console.error("Score submission failed:", error)
-    }
-  }
-
-  const startGame = () => {
-    if (!isConnected) {
-      handleWalletConnect()
-    } else if (chainId !== monadTestnet.id) {
-      switchChain({ chainId: monadTestnet.id })
-    } else {
-      setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
-      soundManagerRef.current?.playBackgroundMusic()
-    }
-  }
-
-  const restartGame = () => {
-    setGameState(prev => ({
-      ...prev,
-      score: 0,
-      lives: 3,
-      gameStatus: 'playing',
-      powerMode: false,
-      powerModeTimer: 0,
-      currentLevel: 1,
-      levelStats: [],
-      consecutiveLevels: 0,
-      bonusScore: 0,
-      showBonusMessage: false,
-      gameSpeed: 250
-    }))
-    
-    initializeLevel(1)
-    soundManagerRef.current?.playBackgroundMusic()
-  }
-
-  const continueGame = () => {
-    setGameState(prev => ({
-      ...prev,
-      gameStatus: 'playing',
-      lives: 3,
-      powerMode: false,
-      powerModeTimer: 0
-    }))
-    
-    initializeLevel(gameState.currentLevel)
-    soundManagerRef.current?.playBackgroundMusic()
-  }
-
-  const exitGame = () => {
-    setGameState(prev => ({ ...prev, gameStatus: 'pregame' }))
-    soundManagerRef.current?.stopBackgroundMusic()
-  }
-
-  const toggleLeaderboard = () => {
-    setGameState(prev => ({ ...prev, showLeaderboard: !prev.showLeaderboard }))
-  }
-
-  const toggleSounds = () => {
-    const soundsEnabled = soundManagerRef.current?.toggleSounds()
-    return soundsEnabled
-  }
-
-  // Enhanced mobile controls
-  const handleDirectionPress = useCallback((direction: Position) => {
+  // Mobile touch controls
+  const handleDirectionButton = (direction: { x: number; y: number }) => {
     if (gameState.gameStatus !== 'playing') return
-
+    
     const maze = getMazeForLevel(gameState.currentLevel)
     const nextX = gameState.pacmon.x + direction.x
     const nextY = gameState.pacmon.y + direction.y
@@ -1123,380 +986,289 @@ export default function PacmonGame() {
     if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && maze[nextY][nextX] !== 1) {
       setGameState(prev => ({ ...prev, pacmonDirection: direction }))
     }
-  }, [gameState.pacmon, gameState.gameStatus, gameState.currentLevel])
+  }
+
+  const startGame = () => {
+    if (!isConnected) {
+      connect({ connector: farcasterFrame() })
+      return
+    }
+    
+    if (chainId !== monadTestnet.id) {
+      switchChain({ chainId: monadTestnet.id })
+      return
+    }
+    
+    setGameState(prev => ({
+      ...prev,
+      gameStatus: 'playing',
+      score: 0,
+      lives: 3,
+      currentLevel: 1,
+      levelStats: [],
+      consecutiveLevels: 0
+    }))
+    initializeLevel(1)
+    soundManagerRef.current?.playBackgroundMusic()
+  }
+
+  const saveScoreOnChain = async () => {
+    if (!isConnected || !address || chainId !== monadTestnet.id) return
+
+    try {
+      const scoreHash = keccak256(toHex(gameState.score.toString() + address + Date.now()))
+      
+      await sendTransaction({
+        to: SCORE_CONTRACT_ADDRESS,
+        value: parseEther('0.015'),
+        data: encodeFunctionData({
+          abi: [{
+            name: 'submitScore',
+            type: 'function',
+            inputs: [
+              { name: 'score', type: 'uint256' },
+              { name: 'hash', type: 'bytes32' }
+            ],
+            outputs: []
+          }],
+          functionName: 'submitScore',
+          args: [BigInt(gameState.score), scoreHash]
+        })
+      })
+      
+      setScoreSaved(true)
+      
+      setTimeout(() => {
+        loadOnChainScores()
+      }, 2000)
+    } catch (error) {
+      console.error('Error saving score:', error)
+    }
+  }
+
+  const resetGame = () => {
+    setGameState(prev => ({
+      ...prev,
+      gameStatus: 'pregame',
+      score: 0,
+      lives: 3,
+      currentLevel: 1,
+      levelStats: [],
+      consecutiveLevels: 0,
+      showBonusMessage: false
+    }))
+    soundManagerRef.current?.stopBackgroundMusic()
+    setScoreSaved(false)
+  }
+
+  const toggleLeaderboard = () => {
+    setGameState(prev => ({ ...prev, showLeaderboard: !prev.showLeaderboard }))
+  }
+
+  const isNewPersonalBest = gameState.score > (gameState.userOnChainScore || 0)
 
   return (
-    <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-      {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
-        <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
-              PACMON
-            </h1>
-            <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-              🎮 Enhanced Multi-Level Adventure! 🎮
-            </div>
-            <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                Current High Scores Onchain
-              </div>
-              <div className="space-y-2 bg-black bg-opacity-30 rounded-lg p-4">
-                {gameState.onChainScores.slice(0, 3).map((score, index) => (
-                  <div key={index} className="flex items-center justify-between text-base md:text-lg" style={{ 
-                    color: index === 0 ? COLORS.MONAD_BERRY : index === 1 ? COLORS.MONAD_BLUE : COLORS.MONAD_OFF_WHITE 
-                  }}>
-                    <span className="flex items-center">
-                      <span className="text-xl mr-2">{index === 0 ? '🏆' : index === 1 ? '🥈' : '🥉'}</span>
-                      <span className="font-bold">{index === 0 ? '1st' : index === 1 ? '2nd' : '3rd'}</span>
-                    </span>
-                    <span className="font-mono">{score.score.toLocaleString()}</span>
-                    <span className="text-sm font-mono">{`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}</span>
-                  </div>
-                ))}
-                {gameState.onChainScores.length === 0 && (
-                  <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                    Save your score onchain to appear here
-                  </div>
-                )}
-              </div>
+    
+      
+        {/* Clean Start Screen */}
+        {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
+          
+            PACMON
+            
+            {gameState.onChainScores.length > 0 && (
               
-              {/* New Features Highlight */}
-              <div className="mt-4 p-3 bg-black bg-opacity-30 rounded-lg">
-                <div className="text-sm font-bold mb-2" style={{ color: COLORS.MONAD_BERRY }}>
-                  ✨ New Features ✨
-                </div>
-                <div className="text-xs space-y-1" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  <div>🎯 Progressive Difficulty - 5+ Levels</div>
-                  <div>🏃 Increasing Speed & Smarter Ghosts</div>
-                  <div>🎁 Bonus Lives & Score Multipliers</div>
-                  <div>🗺️ Multiple Maze Layouts</div>
-                  <div>📊 Level Statistics & Progress</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* User's On-Chain Score */}
-          {gameState.userOnChainScore !== null && (
-            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-              <div className="text-center space-y-2">
-                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                  Your Best Onchain Score
-                </div>
-                <div className="text-xl font-mono font-bold" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  {gameState.userOnChainScore.toLocaleString()}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Wallet Connection Status */}
-          {isConnected && (
-            <div className="w-full max-w-md p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
-              <div className="text-center space-y-2">
-                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                  Wallet Connected
-                </div>
-                <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
-                </div>
-                <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="w-full max-w-md space-y-4 px-4">
-            <button
-              onClick={startGame}
-              className="w-full py-6 px-8 text-xl md:text-2xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: COLORS.MONAD_BERRY, 
-                color: COLORS.WHITE 
-              }}
-            >
-              {!isConnected ? 'Connect Wallet to Play' : 
-               chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
-               'Start Adventure'}
-            </button>
-
-            <button
-              onClick={toggleLeaderboard}
-              className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-              style={{ 
-                backgroundColor: COLORS.MONAD_PURPLE, 
-                color: COLORS.WHITE 
-              }}
-            >
-              View Leaderboard
-            </button>
-
+                Current High Scores
+                
+                  {gameState.onChainScores.slice(0, 3).map((score, index) => (
+                    
+                      
+                        {score.address.slice(0, 6)}...{score.address.slice(-4)}
+                      
+                      {score.score.toLocaleString()}
+                    
+                  ))}
+                
+              
+            )}
+            
+            {gameState.onChainScores.length === 0 && (
+              
+                Current High Scores
+                No scores yet. Be the first to play!
+              
+            )}
+            
+            
+              
+                {!isConnected 
+                  ? 'Connect Wallet to Play' 
+                  : chainId !== monadTestnet.id 
+                  ? 'Switch to Monad Testnet' 
+                  : 'Start Game'
+                }
+              
+              
+              
+                View Leaderboard
+              
+            
+            
             {isConnected && (
-              <button
-                onClick={() => disconnect()}
-                className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-                style={{ 
-                  backgroundColor: 'transparent', 
-                  color: COLORS.MONAD_OFF_WHITE,
-                  border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
-                }}
+               disconnect()}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
               >
                 Disconnect Wallet
-              </button>
+              
             )}
-          </div>
+          
+        )}
 
-          <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-            <p>🎮 Progressive difficulty across multiple levels</p>
-            <p>🏆 Earn bonus lives and score multipliers</p>
-            <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
-              Submit your score to the blockchain for 0.015 MON!
-            </p>
-          </div>
-        </div>
-      )}
-
-      {gameState.showLeaderboard && (
-        <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
-              🏆 Leaderboard 🏆
-            </h2>
-            <p className="text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              Top Players on Monad Testnet
-            </p>
-          </div>
-
-          <div className="w-full max-w-md space-y-2 px-4">
-            {gameState.onChainScores.map((score, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-black bg-opacity-30">
-                <span className="text-lg font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
-                  {index < 3 ? ['🏆', '🥈', '🥉'][index] : `#${index + 1}`}
-                </span>
-                <span className="font-mono text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  {score.score.toLocaleString()}
-                </span>
-                <span className="text-sm font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  {`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}
-                </span>
-              </div>
-            ))}
-            {gameState.onChainScores.length === 0 && (
-              <div className="text-center p-8" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                <p>No scores saved onchain yet.</p>
-                <p className="mt-2 text-sm">Be the first to save your score!</p>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={toggleLeaderboard}
-            className="py-4 px-8 text-lg font-bold rounded-lg"
-            style={{ 
-              backgroundColor: COLORS.MONAD_BERRY, 
-              color: COLORS.WHITE 
-            }}
-          >
-            Back to Game
-          </button>
-        </div>
-      )}
-
-      {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'levelTransition') && (
-        <div className="flex flex-col h-screen w-full">
-          <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-            <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
-              PACMON
-            </h1>
-            <div className="flex justify-center space-x-4 text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              <div>Score: {gameState.score}</div>
-              <div>Lives: {gameState.lives}</div>
-              <div className="font-bold" style={{ color: COLORS.MONAD_BERRY }}>
-                Level: {gameState.currentLevel}
-              </div>
-              {gameState.powerMode && (
-                <div style={{ color: COLORS.MONAD_PURPLE }}>
-                  Power: {Math.ceil(gameState.powerModeTimer / 5)}s
-                </div>
+        {/* Leaderboard Screen */}
+        {gameState.showLeaderboard && (
+          
+            Leaderboard
+            
+            
+              {gameState.onChainScores.length > 0 ? (
+                
+                  {gameState.onChainScores.map((score, index) => (
+                    
+                      
+                        #{index + 1}
+                        
+                          {score.address.slice(0, 6)}...{score.address.slice(-4)}
+                        
+                      
+                      {score.score.toLocaleString()}
+                    
+                  ))}
+                
+              ) : (
+                No scores recorded yet. Play to set the first score!
               )}
-              <button
-                onClick={toggleSounds}
-                className="text-xs px-2 py-1 rounded"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_BLUE, 
-                  color: COLORS.WHITE 
-                }}
+            
+            
+            
+              Back to Menu
+            
+          
+        )}
+
+        {/* Game Canvas */}
+        {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'levelTransition') && (
+          
+            
+            
+            {/* Game HUD */}
+            
+              Score: {gameState.score.toLocaleString()}
+              Level: {gameState.currentLevel}
+              Lives: {gameState.lives}
+            
+            
+            {gameState.powerMode && (
+              
+                
+                  Power Mode: {Math.ceil(gameState.powerModeTimer / 10)}s
+                
+              
+            )}
+            
+            {/* Mobile Controls */}
+            
+               handleDirectionButton({ x: 0, y: -1 })}
+                onClick={() => handleDirectionButton({ x: 0, y: -1 })}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+              >
+                ↑
+              
+              
+                 handleDirectionButton({ x: -1, y: 0 })}
+                  onClick={() => handleDirectionButton({ x: -1, y: 0 })}
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+                >
+                  ←
+                
+                 handleDirectionButton({ x: 1, y: 0 })}
+                  onClick={() => handleDirectionButton({ x: 1, y: 0 })}
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+                >
+                  →
+                
+              
+               handleDirectionButton({ x: 0, y: 1 })}
+                onClick={() => handleDirectionButton({ x: 0, y: 1 })}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+              >
+                ↓
+              
+            
+            
+            
+               soundManagerRef.current?.toggleSounds()}
+                className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 px-2 rounded"
               >
                 {soundManagerRef.current?.getSoundsEnabled() ? '🔊' : '🔇'}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-col h-full">
-            {/* Game Canvas Container */}
-            <div className="flex-1 flex items-start justify-center pt-4">
-              <canvas
-                ref={canvasRef}
-                width={GAME_WIDTH}
-                height={GAME_HEIGHT}
-                className="max-w-full max-h-full border-2 border-purple-500"
-                style={{ backgroundColor: COLORS.MONAD_BLACK }}
-              />
-            </div>
+              
+              
+                Quit
+              
             
-            {/* Enhanced Mobile Controls */}
-            <div className="flex justify-center pb-8 pt-4 md:hidden">
-              <div className="flex flex-col items-center space-y-4">
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
-                  onClick={() => handleDirectionPress({ x: 0, y: -1 })}
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE,
-                    opacity: 0.9
-                  }}
-                >
-                  ⬆️
-                </button>
-                <div className="flex space-x-6">
-                  <button
-                    onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
-                    onClick={() => handleDirectionPress({ x: -1, y: 0 })}
-                    className="w-28 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE,
-                      borderColor: COLORS.MONAD_OFF_WHITE,
-                      opacity: 0.9
-                    }}
-                  >
-                    ⬅️
-                  </button>
-                  <button
-                    onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
-                    onClick={() => handleDirectionPress({ x: 1, y: 0 })}
-                    className="w-28 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                    style={{ 
-                      backgroundColor: COLORS.MONAD_PURPLE, 
-                      color: COLORS.WHITE,
-                      borderColor: COLORS.MONAD_OFF_WHITE,
-                      opacity: 0.9
-                    }}
-                  >
-                    ➡️
-                  </button>
-                </div>
-                <button
-                  onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
-                  onClick={() => handleDirectionPress({ x: 0, y: 1 })}
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
-                  style={{ 
-                    backgroundColor: COLORS.MONAD_PURPLE, 
-                    color: COLORS.WHITE,
-                    borderColor: COLORS.MONAD_OFF_WHITE,
-                    opacity: 0.9
-                  }}
-                >
-                  ⬇️
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          
+        )}
 
-      {gameState.gameStatus === 'postGame' && (
-        <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>
-              {gameState.lives <= 0 ? 'Game Over!' : 'Well Done!'}
-            </h2>
-            <div className="text-2xl font-bold" style={{ color: COLORS.MONAD_BERRY }}>
-              Final Score: {gameState.score.toLocaleString()}
-            </div>
-            <div className="text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-              Levels Completed: {gameState.currentLevel - 1}
-            </div>
+        {/* Game Over Screen */}
+        {gameState.gameStatus === 'postGame' && (
+          
+            Game Over
             
-            {/* Enhanced Statistics */}
-            <div className="space-y-2 bg-black bg-opacity-30 rounded-lg p-4">
-              <div className="text-lg font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                📊 Game Statistics
-              </div>
-              <div className="text-sm space-y-1" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                <div>🎯 Highest Level Reached: {gameState.currentLevel}</div>
-                <div>🏆 Total Score: {gameState.score.toLocaleString()}</div>
-                <div>⏱️ Levels Completed: {gameState.consecutiveLevels}</div>
-                {gameState.score > (gameState.highScore || 0) && (
-                  <div className="text-sm font-bold" style={{ color: COLORS.MONAD_BERRY }}>
-                    🎉 New Personal Best!
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full max-w-md space-y-4 px-4">
+            
+              
+                Final Score: {gameState.score.toLocaleString()}
+              
+              
+              {gameState.consecutiveLevels > 0 && (
+                
+                  Levels Completed: {gameState.consecutiveLevels}
+                
+              )}
+              
+              {isNewPersonalBest && (
+                
+                  🎉 New Personal Best! 🎉
+                
+              )}
+              
+              
+                Level Reached: {gameState.currentLevel}
+                Total Play Time: {Math.floor((Date.now() - gameState.levelStartTime) / 1000)}s
+              
+            
+            
             {isConnected && chainId === monadTestnet.id && !scoreSaved && (
-              <button
-                onClick={handleScoreSubmission}
-                className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_BERRY, 
-                  color: COLORS.WHITE 
-                }}
-              >
-                💾 Save Score Onchain (0.015 MON)
-              </button>
+              
+                Save Score On-Chain (0.015 MON)
+              
             )}
-
+            
             {scoreSaved && (
-              <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'rgba(0, 255, 0, 0.1)', color: COLORS.GREEN }}>
-                ✅ Score saved successfully!
-              </div>
+              
+                ✅ Score saved on-chain successfully!
+              
             )}
-
-            <button
-              onClick={restartGame}
-              className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-              style={{ 
-                backgroundColor: COLORS.MONAD_PURPLE, 
-                color: COLORS.WHITE 
-              }}
-            >
-              🔄 Play Again
-            </button>
-
-            {gameState.lives > 0 && (
-              <button
-                onClick={continueGame}
-                className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_BLUE, 
-                  color: COLORS.WHITE 
-                }}
-              >
-                ▶️ Continue from Level {gameState.currentLevel}
-              </button>
-            )}
-
-            <button
-              onClick={exitGame}
-              className="w-full py-4 px-6 text-lg font-bold rounded-lg transition-all duration-200"
-              style={{ 
-                backgroundColor: 'transparent', 
-                color: COLORS.MONAD_OFF_WHITE,
-                border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
-              }}
-            >
-              🏠 Main Menu
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+            
+            
+              
+                Play Again
+              
+              
+              
+                Main Menu
+              
+            
+          
+        )}
+      
+    
   )
 }
