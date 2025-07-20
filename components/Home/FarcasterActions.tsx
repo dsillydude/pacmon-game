@@ -1,6 +1,6 @@
 import { useFrame } from '@/components/farcaster-provider'
 import { APP_URL } from '@/lib/constants'
-import { useMutation } from '@tanstack/react-query'
+
 
 export function FarcasterActions() {
   const { actions } = useFrame()
