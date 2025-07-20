@@ -1,14 +1,11 @@
 import { APP_URL } from "@/lib/constants";
 import {
-  SendNotificationRequest,
+  sendNotificationRequest,
   sendNotificationResponseSchema,
 } from "@farcaster/frame-sdk";
 
 type SendFrameNotificationResult =
-  | {
-      state: "error";
-      error: unknown;
-    }
+  | { state: "error"; error: unknown }
   | { state: "no_token" }
   | { state: "rate_limit" }
   | { state: "success" };
@@ -17,49 +14,63 @@ export async function sendFrameNotification({
   fid,
   title,
   body,
+  image,
+  url,
 }: {
   fid: number;
   title: string;
   body: string;
+  image: string;
+  url: string;
 }): Promise<SendFrameNotificationResult> {
-  // TODO: Get notification details
-  const notificationDetails = { url: "", token: "" };
-
-  if (!notificationDetails) {
-    return { state: "no_token" };
-  }
-
-  const response = await fetch(notificationDetails.url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      notificationId: crypto.randomUUID(),
+  const res = await sendNotificationRequest({
+    notification: {
+      fid,
       title,
       body,
-      targetUrl: APP_URL,
-      tokens: [notificationDetails.token],
-    } satisfies SendNotificationRequest),
+      image,
+      url,
+    },
+    secret: process.env.FARCASTER_DEVELOPER_MNEMONIC as string,
   });
 
-  const responseJson = await response.json();
-
-  if (response.status === 200) {
-    const responseBody = sendNotificationResponseSchema.safeParse(responseJson);
-    if (responseBody.success === false) {
-      // Malformed response
-      return { state: "error", error: responseBody.error.errors };
+  if (res.isErr()) {
+    if (res.error.message.includes("no token")) {
+      return { state: "no_token" };
     }
-
-    if (responseBody.data.result.rateLimitedTokens.length) {
-      // Rate limited
+    if (res.error.message.includes("rate limit")) {
       return { state: "rate_limit" };
     }
+    return { state: "error", error: res.error };
+  }
 
+  const json = sendNotificationResponseSchema.parse(res.value);
+
+  if (json.success) {
     return { state: "success" };
   } else {
-    // Error response
-    return { state: "error", error: responseJson };
+    return { state: "error", error: json.error };
   }
 }
+
+export async function sendMatchNotification(
+  fid: number,
+  matchedUser: string,
+  compatibility: number,
+  reason: string,
+  imageUrl: string
+) {
+  const title = `You matched with ${matchedUser}!`;
+  const body = `You have a ${compatibility}% compatibility. Reason: ${reason}`;
+  const url = `${APP_URL}/match/${fid}`;
+
+  return sendFrameNotification({
+    fid,
+    title,
+    body,
+    image: imageUrl,
+    url,
+  });
+}
+
+

@@ -3,3 +3,4 @@ export const APP_URL = process.env.NEXT_PUBLIC_URL!;
 if (!APP_URL) {
   throw new Error("NEXT_PUBLIC_URL is not set");
 }
+
