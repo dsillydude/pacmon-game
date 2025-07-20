@@ -1,6 +1,17 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useFrame } from '@/components/farcaster-provider'
+import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
+import { parseEther } from 'viem'
+import { monadTestnet } from 'viem/chains'
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useSendTransaction,
+  useSwitchChain,
+} from 'wagmi'
 
 // Monad color palette
 const COLORS = {
@@ -43,9 +54,12 @@ interface GameState {
   powerPellets: Position[]
   score: number
   lives: number
-  gameStatus: 'playing' | 'gameOver' | 'levelComplete'
+  gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete'
   powerMode: boolean
   powerModeTimer: number
+  highScore: number
+  totalPlayers: number
+  totalPlays: number
 }
 
 // Simple maze layout (1 = wall, 0 = empty, 2 = pellet, 3 = power pellet)
@@ -74,6 +88,13 @@ const MAZE = [
 
 export default function PacmonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { isEthProviderAvailable } = useFrame()
+  const { isConnected, address, chainId } = useAccount()
+  const { disconnect } = useDisconnect()
+  const { data: hash, sendTransaction } = useSendTransaction()
+  const { switchChain } = useSwitchChain()
+  const { connect } = useConnect()
+  
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 9, y: 15 },
     pacmonDirection: { x: 0, y: 0 },
@@ -87,9 +108,12 @@ export default function PacmonGame() {
     powerPellets: [],
     score: 0,
     lives: 3,
-    gameStatus: 'playing',
+    gameStatus: 'pregame',
     powerMode: false,
-    powerModeTimer: 0
+    powerModeTimer: 0,
+    highScore: 15420,
+    totalPlayers: 2847,
+    totalPlays: 8932
   })
 
   // Initialize pellets and power pellets from maze
@@ -278,6 +302,8 @@ export default function PacmonGame() {
                 newState.ghosts = newState.ghosts.map(g => ({ ...g, position: { x: 9, y: 9 }, direction: { x: 1, y: 0 }, vulnerable: false, eaten: false })) // Reset ghosts
                 if (newState.lives <= 0) {
                   newState.gameStatus = 'gameOver'
+                  // Trigger achievement reward
+                  handleAchievementReward(newState.score)
                 }
               }
             }
@@ -295,6 +321,8 @@ export default function PacmonGame() {
           // Check level complete
           if (newState.pellets.length === 0 && newState.powerPellets.length === 0) {
             newState.gameStatus = 'levelComplete'
+            // Trigger achievement reward for level completion
+            handleAchievementReward(newState.score + 500) // Bonus for completing level
           }
           
           return newState
@@ -453,6 +481,60 @@ export default function PacmonGame() {
     })
   }, [gameState])
 
+  const handlePayment = async () => {
+    if (!isConnected) {
+      if (isEthProviderAvailable) {
+        connect({ connector: farcasterFrame() })
+      }
+      return
+    }
+
+    if (chainId !== monadTestnet.id) {
+      switchChain({ chainId: monadTestnet.id })
+      return
+    }
+
+    try {
+      await sendTransaction({
+        to: '0x7f748f154B6D180D35fA12460C7E4C631e28A9d7', // Game treasury address
+        value: parseEther('0.0001'),
+      })
+      // Start the game after successful payment
+      setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+    } catch (error) {
+      console.error('Payment failed:', error)
+    }
+  }
+
+  const handleAchievementReward = async (score: number) => {
+    if (!isConnected || chainId !== monadTestnet.id) return
+
+    // Send achievement reward transaction
+    try {
+      const rewardAmount = Math.floor(score / 1000) * 0.00001 // 0.00001 MON per 1000 points
+      if (rewardAmount > 0) {
+        await sendTransaction({
+          to: address!, // Send reward to player
+          value: parseEther(rewardAmount.toString()),
+        })
+      }
+    } catch (error) {
+      console.error('Achievement reward failed:', error)
+    }
+  }
+
+  const startGame = () => {
+    // For testing purposes, start the game directly
+    setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+    
+    // Uncomment below for production with wallet integration
+    // if (!isConnected) {
+    //   handlePayment()
+    // } else {
+    //   handlePayment()
+    // }
+  }
+
   const restartGame = () => {
     setGameState({
       pacmon: { x: 9, y: 15 },
@@ -467,9 +549,12 @@ export default function PacmonGame() {
       powerPellets: [],
       score: 0,
       lives: 3,
-      gameStatus: 'playing',
+      gameStatus: 'pregame',
       powerMode: false,
-      powerModeTimer: 0
+      powerModeTimer: 0,
+      highScore: gameState.highScore > gameState.score ? gameState.highScore : gameState.score,
+      totalPlayers: gameState.totalPlayers,
+      totalPlays: gameState.totalPlays + 1
     })
     
     // Reinitialize pellets
@@ -489,83 +574,242 @@ export default function PacmonGame() {
     setGameState(prev => ({ ...prev, pellets, powerPellets }))
   }
 
+  // Handle mobile controls
+  const handleDirectionPress = useCallback((direction: Position) => {
+    if (gameState.gameStatus !== 'playing') return
+
+    // Only update direction if the new direction is valid (not a wall in the immediate next cell)
+    const nextX = gameState.pacmon.x + direction.x
+    const nextY = gameState.pacmon.y + direction.y
+
+    if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && MAZE[nextY][nextX] !== 1) {
+      setGameState(prev => ({ ...prev, pacmonDirection: direction }))
+    }
+  }, [gameState.pacmon, gameState.gameStatus])
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
-      <div className="text-center mb-4">
-        <h1 className="text-4xl font-bold mb-2" style={{ color: COLORS.MONAD_PURPLE }}>
-          PACMON
-        </h1>
-        <div className="flex justify-center space-x-8 text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-          <div>Score: {gameState.score}</div>
-          <div>Lives: {gameState.lives}</div>
-          {gameState.powerMode && (
-            <div style={{ color: COLORS.MONAD_PURPLE }}>
-              Power Mode: {Math.ceil(gameState.powerModeTimer / 5)}s
+    <div className="flex flex-col items-center justify-center min-h-screen p-2 md:p-4" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+      {gameState.gameStatus === 'pregame' && (
+        <div className="flex flex-col items-center justify-center w-full max-w-md space-y-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent animate-pulse">
+              PACMON
+            </h1>
+            <div className="space-y-2 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+              <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                Today's High Score: {gameState.highScore.toLocaleString()}
+              </div>
+              <div className="text-base md:text-lg" style={{ color: COLORS.MONAD_BERRY }}>
+                Total Players: {gameState.totalPlayers.toLocaleString()}
+              </div>
+              <div className="text-base md:text-lg" style={{ color: COLORS.MONAD_BLUE }}>
+                Total Plays: {gameState.totalPlays.toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* Wallet Connection Status */}
+          {isConnected && (
+            <div className="w-full p-4 rounded-lg border-2" style={{ borderColor: COLORS.MONAD_PURPLE, backgroundColor: 'rgba(131, 110, 249, 0.1)' }}>
+              <div className="text-center space-y-2">
+                <div className="text-sm font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
+                  Wallet Connected
+                </div>
+                <div className="text-xs font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  {address?.slice(0, 6)}...{address?.slice(-4)}
+                </div>
+                <div className="text-xs" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : 'Switch to Monad Testnet'}
+                </div>
+              </div>
             </div>
           )}
+
+          <div className="w-full space-y-4">
+            <button
+              onClick={startGame}
+              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+              style={{ 
+                backgroundColor: COLORS.MONAD_BERRY, 
+                color: COLORS.WHITE 
+              }}
+            >
+              {!isConnected ? 'Connect Wallet & Pay 0.0001 MON' : 
+               chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
+               'Pay 0.0001 MON for +1 Play'}
+            </button>
+            
+            <button
+              onClick={() => {/* Rankings functionality will be added later */}}
+              className="w-full py-4 px-6 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+              style={{ 
+                backgroundColor: COLORS.MONAD_BLUE, 
+                color: COLORS.WHITE 
+              }}
+            >
+              Rankings
+            </button>
+
+            {isConnected && (
+              <button
+                onClick={() => disconnect()}
+                className="w-full py-2 px-4 text-sm font-bold rounded-lg transition-all duration-200"
+                style={{ 
+                  backgroundColor: 'transparent', 
+                  color: COLORS.MONAD_OFF_WHITE,
+                  border: `1px solid ${COLORS.MONAD_OFF_WHITE}`
+                }}
+              >
+                Disconnect Wallet
+              </button>
+            )}
+          </div>
+
+          <div className="text-center text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+            <p>Swipe/Mouse to move, tap/click to play</p>
+            <p className="mt-1">Eat all pellets while avoiding ghosts!</p>
+            <p className="mt-2 text-xs" style={{ color: COLORS.MONAD_PURPLE }}>
+              Earn MON rewards for high scores and achievements!
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          width={GAME_WIDTH}
-          height={GAME_HEIGHT}
-          className="border-2"
-          style={{ borderColor: COLORS.MONAD_PURPLE }}
-        />
-        
-        {gameState.gameStatus === 'gameOver' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_BERRY }}>
-                Game Over
-              </h2>
-              <p className="text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                Final Score: {gameState.score}
-              </p>
+      {gameState.gameStatus !== 'pregame' && (
+        <>
+          <div className="text-center mb-2 md:mb-4">
+            <h1 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2" style={{ color: COLORS.MONAD_PURPLE }}>
+              PACMON
+            </h1>
+            <div className="flex justify-center space-x-4 md:space-x-8 text-sm md:text-lg" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+              <div>Score: {gameState.score}</div>
+              <div>Lives: {gameState.lives}</div>
+              {gameState.powerMode && (
+                <div style={{ color: COLORS.MONAD_PURPLE }}>
+                  Power: {Math.ceil(gameState.powerModeTimer / 5)}s
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="relative mb-4">
+            <canvas
+              ref={canvasRef}
+              width={GAME_WIDTH}
+              height={GAME_HEIGHT}
+              className="border-2 max-w-full h-auto"
+              style={{ borderColor: COLORS.MONAD_PURPLE }}
+            />
+            
+            {gameState.gameStatus === 'gameOver' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                <div className="text-center">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_BERRY }}>
+                    Game Over
+                  </h2>
+                  <p className="text-lg md:text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    Final Score: {gameState.score}
+                  </p>
+                  <button
+                    onClick={restartGame}
+                    className="px-4 md:px-6 py-2 md:py-3 text-base md:text-lg font-bold rounded"
+                    style={{ 
+                      backgroundColor: COLORS.MONAD_PURPLE, 
+                      color: COLORS.WHITE 
+                    }}
+                  >
+                    Play Again
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {gameState.gameStatus === 'levelComplete' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                <div className="text-center">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_PURPLE }}>
+                    Level Complete!
+                  </h2>
+                  <p className="text-lg md:text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+                    Score: {gameState.score}
+                  </p>
+                  <button
+                    onClick={restartGame}
+                    className="px-4 md:px-6 py-2 md:py-3 text-base md:text-lg font-bold rounded"
+                    style={{ 
+                      backgroundColor: COLORS.MONAD_PURPLE, 
+                      color: COLORS.WHITE 
+                    }}
+                  >
+                    Next Level
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Controls */}
+          <div className="flex flex-col items-center space-y-4 md:hidden">
+            <div className="flex flex-col items-center space-y-2">
               <button
-                onClick={restartGame}
-                className="px-6 py-3 text-lg font-bold rounded"
+                onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })}
+                onClick={() => handleDirectionPress({ x: 0, y: -1 })}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
                 style={{ 
                   backgroundColor: COLORS.MONAD_PURPLE, 
-                  color: COLORS.WHITE 
+                  color: COLORS.WHITE,
+                  borderColor: COLORS.MONAD_OFF_WHITE
                 }}
               >
-                Play Again
+                ↑
+              </button>
+              <div className="flex space-x-2">
+                <button
+                  onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })}
+                  onClick={() => handleDirectionPress({ x: -1, y: 0 })}
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
+                  style={{ 
+                    backgroundColor: COLORS.MONAD_PURPLE, 
+                    color: COLORS.WHITE,
+                    borderColor: COLORS.MONAD_OFF_WHITE
+                  }}
+                >
+                  ←
+                </button>
+                <button
+                  onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })}
+                  onClick={() => handleDirectionPress({ x: 1, y: 0 })}
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
+                  style={{ 
+                    backgroundColor: COLORS.MONAD_PURPLE, 
+                    color: COLORS.WHITE,
+                    borderColor: COLORS.MONAD_OFF_WHITE
+                  }}
+                >
+                  →
+                </button>
+              </div>
+              <button
+                onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })}
+                onClick={() => handleDirectionPress({ x: 0, y: 1 })}
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform"
+                style={{ 
+                  backgroundColor: COLORS.MONAD_PURPLE, 
+                  color: COLORS.WHITE,
+                  borderColor: COLORS.MONAD_OFF_WHITE
+                }}
+              >
+                ↓
               </button>
             </div>
           </div>
-        )}
-        
-        {gameState.gameStatus === 'levelComplete' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold mb-4" style={{ color: COLORS.MONAD_PURPLE }}>
-                Level Complete!
-              </h2>
-              <p className="text-xl mb-4" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                Score: {gameState.score}
-              </p>
-              <button
-                onClick={restartGame}
-                className="px-6 py-3 text-lg font-bold rounded"
-                style={{ 
-                  backgroundColor: COLORS.MONAD_PURPLE, 
-                  color: COLORS.WHITE 
-                }}
-              >
-                Next Level
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
 
-      <div className="mt-4 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-        <p className="text-sm">Use arrow keys or WASD to move</p>
-        <p className="text-xs mt-2">Eat all pellets while avoiding ghosts!</p>
-      </div>
+          <div className="mt-2 md:mt-4 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
+            <p className="text-xs md:text-sm">Use arrow keys or WASD to move</p>
+            <p className="text-xs mt-1 md:mt-2">Eat all pellets while avoiding ghosts!</p>
+          </div>
+        </>
+      )}
     </div>
   )
 }
