@@ -1,21 +1,8 @@
-/** @type {import('next').NextConfig} */
+/** @type {import("next").NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
-  images: {
-    domains: ['localhost'],
-  },
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      net: false,
-      tls: false,
-    }
-    return config
-  },
-}
+  // Removed 'appDir: true' from experimental as it's no longer needed in Next.js 14
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
+
 
