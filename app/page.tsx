@@ -1,23 +1,35 @@
-import PacmonGame from '@components/PacmonGame'
+import App from '@/components/pages/app'
+import { APP_URL } from '@/lib/constants'
+import type { Metadata } from 'next'
+
+const frame = {
+  version: 'next',
+  imageUrl: `${APP_URL}/images/feed.png`,
+  button: {
+    title: 'Play Pacmon',
+    action: {
+      type: 'launch_frame',
+      name: 'Pacmon - Monad Pacman Game',
+      url: APP_URL,
+      splashImageUrl: `${APP_URL}/images/splash.png`,
+      splashBackgroundColor: '#200052',
+    },
+  },
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Pacmon - Monad Pacman Game',
+    openGraph: {
+      title: 'Pacmon - Monad Pacman Game',
+      description: 'Play Pacmon, a Pacman-style game with Monad theming on Farcaster',
+    },
+    other: {
+      'fc:frame': JSON.stringify(frame),
+    },
+  }
+}
 
 export default function Home() {
-  return <PacmonGame />
+  return <App />
 }
-
-export const metadata = {
-  title: 'Pacmon Game - Enhanced Pacman with Progressive Levels',
-  description: 'Play the enhanced Pacman game with progressive difficulty levels, classic visuals, and Farcaster integration.',
-  openGraph: {
-    title: 'Pacmon Game - Enhanced Pacman',
-    description: 'Enhanced Pacman game with progressive difficulty levels',
-    images: ['/api/og'],
-  },
-  other: {
-    'fc:frame': 'vNext',
-    'fc:frame:image': `${process.env.NEXT_PUBLIC_URL}/api/frame`,
-    'fc:frame:post_url': `${process.env.NEXT_PUBLIC_URL}/api/frame`,
-    'fc:frame:button:1': 'Play Game',
-    'fc:frame:button:2': 'View Leaderboard',
-  },
-}
-

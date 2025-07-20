@@ -1,59 +1,83 @@
-# Changelog
+# Changelog - Pacmon Enhanced
 
-All notable changes to the Pacmon Game will be documented in this file.
+## Version 2.0.0 - Enhanced Edition
 
-## [2.0.0] - 2025-07-18
+### 🚀 Major Features Added
+- **10-Level Progressive System** with increasing difficulty
+- **Enhanced Ghost AI** with 6 different ghost types
+- **Power-Up System** with 6 different power-up types
+- **Combo Scoring System** with multiplier rewards
+- **Advanced Visual Effects** with animations and particles
+- **Mobile Optimization** with touch controls and gestures
+- **Comprehensive Statistics** tracking and display
 
-### 🎮 Major Features Added
-- **Progressive Difficulty System**: 3 distinct levels with increasing complexity
-  - Level 1: Simple 15x15 maze, 2 ghosts, beginner-friendly
-  - Level 2: Medium 20x20 maze, 3 ghosts, intermediate difficulty
-  - Level 3+: Full 28x31 classic maze, 4 ghosts, advanced gameplay
-- **Dynamic Maze System**: Different maze layouts for each level
-- **Smart Level Progression**: Automatic advancement with increasing ghost speed
+### 👻 Ghost AI Improvements
+- **Smart Pathfinding** with look-ahead algorithms
+- **Behavioral State Machines** for each ghost type
+- **Dynamic Mode Switching** between chase/scatter/frightened
+- **Level-Based Speed Scaling** for progressive difficulty
+- **Anti-Reversal Logic** to prevent erratic movement
 
-### 🎨 Visual Improvements
-- **Classic Pac-Man Design**: Authentic yellow Pac-Man with animated mouth
-- **Authentic Ghost Colors**: Red, Pink, Cyan, Orange ghosts matching classic design
-- **Enhanced Ghost Shapes**: Classic ghost design with wavy bottoms and directional eyes
-- **Improved Maze Visuals**: Blue walls with rounded corners on black background
-- **Glowing Power Pellets**: Visual glow effects for power pellets
-- **Clean UI Design**: Removed unnecessary text, improved score display
+### ⚡ Power-Up System
+- **Speed Boost**: Temporary movement speed increase
+- **Freeze**: Stop all ghosts temporarily
+- **Double Points**: 2x scoring for all actions
+- **Shield**: Protection from ghost collisions
+- **Bonus Points**: Instant large point rewards
+- **Extra Life**: Additional life granted
 
-### 🤖 Enhanced Game Mechanics
-- **Intelligent Ghost AI**: Ghosts chase Pac-Man and flee when frightened
-- **Improved Collision Detection**: More accurate collision system
-- **High Score Tracking**: Persistent high score display
-- **Better Controls**: Responsive WASD and arrow key support
-- **Lives Display**: Visual Pac-Man icons for remaining lives
+### 🎮 Gameplay Enhancements
+- **Combo System**: Multiplier scoring up to 5x
+- **Perfect Level Bonus**: Rewards for flawless completion
+- **Time Bonus**: Points for quick level completion
+- **Ghost Chain Scoring**: Exponential points for multiple kills
+- **Horizontal Wrapping**: Screen edge teleportation
 
-### 🔧 Technical Improvements
-- **Responsive Canvas**: Adaptive sizing based on maze complexity
-- **Performance Optimization**: Efficient rendering and collision detection
-- **Mobile Support**: Touch-friendly design and responsive layout
-- **TypeScript Integration**: Better type safety and code quality
-- **Modular Code Structure**: Clean separation of game logic and rendering
+### 🎨 Visual & Audio Improvements
+- **Smooth Animations** with frame-based timing
+- **Particle Effects** for power-ups and special events
+- **Enhanced Sound System** with multiple audio tracks
+- **Dynamic Lighting** and glow effects
+- **Responsive UI** with mobile-optimized layouts
+- **Level Transition Screens** with detailed statistics
+
+### 📱 Mobile Enhancements
+- **Touch Controls** with swipe gesture support
+- **Responsive Design** for all screen sizes
+- **Optimized Button Layout** for mobile gameplay
+- **Gesture Recognition** for intuitive movement
+- **Performance Optimization** for mobile devices
+
+### 🔗 Blockchain Integration
+- **Enhanced Score Storage** with level and combo data
+- **Comprehensive Leaderboard** with detailed statistics
+- **Achievement Tracking** on blockchain
+- **Transaction Optimization** for better user experience
+
+### 🛠 Technical Improvements
+- **Performance Optimization** with efficient rendering
+- **Memory Management** improvements
+- **Error Handling** enhancements
+- **Code Organization** with modular structure
+- **Type Safety** improvements with TypeScript
 
 ### 🐛 Bug Fixes
-- Fixed ghost pathfinding issues
-- Resolved canvas sizing problems
-- Corrected power pellet timer conflicts
-- Improved level progression logic
-- Fixed collision detection accuracy
+- Fixed ghost collision detection edge cases
+- Improved mobile touch responsiveness
+- Resolved audio playback issues
+- Fixed maze generation consistency
+- Corrected scoring calculation edge cases
 
-### 🚀 Performance Enhancements
-- Optimized game loop with requestAnimationFrame
-- Efficient maze rendering system
-- Smart collision detection algorithms
-- Reduced memory usage and improved FPS
+### 📊 Statistics & Analytics
+- **Detailed Game Metrics** tracking
+- **Performance Monitoring** integration
+- **User Behavior Analytics** setup
+- **Error Tracking** implementation
 
-## [1.0.0] - 2025-07-01
-
-### Initial Release
+## Version 1.0.0 - Initial Release
 - Basic Pacman gameplay
 - Single maze layout
-- 4 ghosts with basic AI
-- Farcaster integration
-- Wallet connectivity
+- Simple ghost AI
 - Basic scoring system
-
+- Farcaster Mini App integration
+- Monad blockchain score storage
