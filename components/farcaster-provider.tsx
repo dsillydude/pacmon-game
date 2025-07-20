@@ -1,80 +1,60 @@
-'use client'
+import type { Context } from '@farcaster/frame-sdk'
+import sdk from '@farcaster/frame-sdk'
+import { useQuery } from '@tanstack/react-query'
+import { type ReactNode, createContext, useContext } from 'react'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-
-interface FrameContext {
+interface FrameContextValue {
+  context: Context.FrameContext | undefined
+  isLoading: boolean
+  isSDKLoaded: boolean
   isEthProviderAvailable: boolean
-  client?: any
-  safeAreaInsets?: {
-    top: number
-    bottom: number
-    left: number
-    right: number
+  actions: typeof sdk.actions | undefined
+}
+
+const FrameProviderContext = createContext<FrameContextValue | undefined>(
+  undefined,
+)
+
+export function useFrame() {
+  const context = useContext(FrameProviderContext)
+  if (context === undefined) {
+    throw new Error('useFrame must be used within a FrameProvider')
   }
+  return context
 }
 
 interface FrameProviderProps {
-  children: React.ReactNode
+  children: ReactNode
 }
-
-const FrameContext = createContext<{
-  context: FrameContext | null
-  isLoading: boolean
-  isSDKLoaded: boolean
-}>({
-  context: null,
-  isLoading: true,
-  isSDKLoaded: false,
-})
 
 export function FrameProvider({ children }: FrameProviderProps) {
-  const [context, setContext] = useState<FrameContext | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSDKLoaded, setIsSDKLoaded] = useState(false)
-
-  useEffect(() => {
-    const initializeFrame = async () => {
+  const farcasterContextQuery = useQuery({
+    queryKey: ['farcaster-context'],
+    queryFn: async () => {
+      const context = await sdk.context
       try {
-        // Check if we're in a Farcaster frame environment
-        const isInFrame = typeof window !== 'undefined' && 
-          (window.parent !== window || window.location !== window.parent.location)
-
-        // Mock frame context for development/testing
-        const mockContext: FrameContext = {
-          isEthProviderAvailable: true,
-          client: {
-            safeAreaInsets: {
-              top: 0,
-              bottom: 0,
-              left: 0,
-              right: 0,
-            },
-          },
-        }
-
-        setContext(mockContext)
-        setIsSDKLoaded(isInFrame)
-        setIsLoading(false)
-      } catch (error) {
-        console.error('Failed to initialize frame:', error)
-        setIsLoading(false)
+        await sdk.actions.ready()
+        return { context, isReady: true }
+      } catch (err) {
+        console.error('SDK initialization error:', err)
       }
-    }
+      return { context, isReady: false }
+    },
+  })
 
-    initializeFrame()
-  }, [])
+  const isReady = farcasterContextQuery.data?.isReady ?? false
 
   return (
-    <FrameContext.Provider value={{ context, isLoading, isSDKLoaded }}>
+    <FrameProviderContext.Provider
+      value={{
+        context: farcasterContextQuery.data?.context,
+        actions: sdk.actions,
+        isLoading: farcasterContextQuery.isPending,
+        isSDKLoaded: isReady && Boolean(farcasterContextQuery.data?.context),
+        isEthProviderAvailable: Boolean(sdk.wallet.ethProvider),
+      }}
+    >
       {children}
-    </FrameContext.Provider>
+    </FrameProviderContext.Provider>
   )
-}
-
-export function useFrame() {
-  const frameContext = useContext(FrameContext)
-  if (!frameContext) {
-    throw new Error('useFrame must be used within a FrameProvider')
-  }
-  return frameContext
 }
