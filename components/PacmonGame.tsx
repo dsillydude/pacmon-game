@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useFrame } from '@/components/farcaster-provider'
 import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
-import { parseEther, encodeFunctionData, keccak256, toHex } from 'viem'
+import { parseEther, encodeFunctionData, keccak256, toHex, Address } from 'viem'
 import { monadTestnet } from 'viem/chains'
 import {
   useAccount,
@@ -13,6 +13,21 @@ import {
   useSwitchChain,
   usePublicClient,
 } from 'wagmi'
+// Add these imports at the top
+import { 
+  useReadContract, 
+  useWriteContract, 
+  useWaitForTransactionReceipt 
+} from 'wagmi'
+
+import { 
+  LEADERBOARD_CONTRACT_ADDRESS, 
+  LEADERBOARD_ABI, 
+  OnChainScore, 
+  PlayerStats 
+} from '@/lib/contract'
+
+
 
 // Enhanced color palette matching reference image
 const COLORS = {
@@ -39,8 +54,8 @@ const CELL_SIZE = 18 // Slightly smaller for better fit
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE
 const GAME_HEIGHT = GRID_SIZE * CELL_SIZE
 
-// Contract address for score storage
-const SCORE_CONTRACT_ADDRESS = '0x1F0e9dcd371af37AD20E96A5a193d78052dCA984'
+// Replace the contract address constant
+const SCORE_CONTRACT_ADDRESS = LEADERBOARD_CONTRACT_ADDRESS
 
 // Game entities
 interface Position {
@@ -58,12 +73,6 @@ interface Ghost {
   scatterTarget: Position
   eaten: boolean
   speed: number // Added speed for difficulty scaling
-}
-
-interface OnChainScore {
-  address: string
-  score: number
-  timestamp: number
 }
 
 interface GameState {
@@ -200,6 +209,42 @@ export default function PacmonGame() {
   const publicClient = usePublicClient()
   const [scoreSaved, setScoreSaved] = useState(false)
   
+  // Add contract hooks after your existing hooks
+  const { data: topScores, refetch: refetchTopScores } = useReadContract({
+    address: LEADERBOARD_CONTRACT_ADDRESS,
+    abi: LEADERBOARD_ABI,
+    functionName: 'getTopScores',
+    args: [10n], // Get top 10 scores
+    query: {
+      enabled: isConnected && chainId === monadTestnet.id,
+    }
+  })
+
+  const { data: playerStats, refetch: refetchPlayerStats } = useReadContract({
+    address: LEADERBOARD_CONTRACT_ADDRESS,
+    abi: LEADERBOARD_ABI,
+    functionName: 'getPlayerStats',
+    args: [address as Address],
+    query: {
+      enabled: !!address && isConnected && chainId === monadTestnet.id,
+    }
+  })
+
+  const { data: totalPlayers } = useReadContract({
+    address: LEADERBOARD_CONTRACT_ADDRESS,
+    abi: LEADERBOARD_ABI,
+    functionName: 'getTotalPlayers',
+    query: {
+      enabled: isConnected && chainId === monadTestnet.id,
+    }
+  })
+
+  const { writeContract: submitScore, data: submitHash } = useWriteContract()
+
+  const { isLoading: isSubmitting, isSuccess: isSubmitted } = useWaitForTransactionReceipt({
+    hash: submitHash,
+  })
+
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 10, y: 15 },
     pacmonDirection: { x: 0, y: 0 },
@@ -222,7 +267,7 @@ export default function PacmonGame() {
     onChainScores: [], // Start with empty array - no mock data
     showLeaderboard: false,
     gameSpeed: 200,
-    isPaused: false  // ✅ FIXED: Added the missing isPaused property
+    isPaused: false
   })
 
   // Initialize sound manager
@@ -230,25 +275,26 @@ export default function PacmonGame() {
     soundManagerRef.current = new SoundManager()
   }, [])
 
-  // Load real on-chain scores only
+  // Update the loadOnChainScores function
   const loadOnChainScores = useCallback(async () => {
-    if (!publicClient || !address) return
-
-    try {
-      // In a real implementation, query the blockchain for actual scores
-      // For now, start with empty array to show only real player scores
-      const realOnChainScores: OnChainScore[] = []
+    // Data is now loaded via useReadContract hooks
+    if (topScores && playerStats) {
+      const formattedScores: OnChainScore[] = (topScores as any[]).map((score: any) => ({
+        address: score.player,
+        score: Number(score.score),
+        timestamp: Number(score.timestamp) * 1000, // Convert to milliseconds
+      }))
 
       setGameState(prev => ({
         ...prev,
-        onChainScores: realOnChainScores.sort((a, b) => b.score - a.score),
-        userOnChainScore: null,
-        highScore: realOnChainScores[0]?.score || 0
+        onChainScores: formattedScores,
+        userOnChainScore: playerStats ? Number((playerStats as PlayerStats).bestScore) : null,
+        highScore: formattedScores[0]?.score || 0,
+        totalPlayers: Number(totalPlayers || 0n)
       }))
-    } catch (error) {
-      console.error('Error loading on-chain scores:', error)
     }
-  }, [publicClient, address])
+  }, [topScores, playerStats, totalPlayers])
+
 
   // Load on-chain scores when wallet connects
   useEffect(() => {
@@ -559,7 +605,7 @@ export default function PacmonGame() {
     }, gameState.gameSpeed)
 
     return () => clearInterval(gameLoop)
-  }, [gameState.gameStatus, gameState.gameSpeed])
+  }, [gameState.gameStatus, gameState.gameSpeed, gameState.isPaused])
 
   // Handle keyboard input (unchanged)
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
@@ -804,36 +850,40 @@ export default function PacmonGame() {
     soundManagerRef.current?.playBackgroundMusic()
   }
 
+  // Update the score submission handler
   const handleScoreSubmission = async () => {
-    if (!isConnected || chainId !== monadTestnet.id) {
+    if (!isConnected || chainId !== monadTestnet.id || !address) {
       return
     }
 
     try {
-      const scoreData = toHex(gameState.score, { size: 32 })
-      const timestampData = toHex(Math.floor(Date.now() / 1000), { size: 32 })
-      
-      await sendTransaction({
-        to: SCORE_CONTRACT_ADDRESS,
-        value: parseEther("0.015"),
-        data: `0x${scoreData.slice(2)}${timestampData.slice(2)}`
+      await submitScore({
+        address: LEADERBOARD_CONTRACT_ADDRESS,
+        abi: LEADERBOARD_ABI,
+        functionName: 'submitScore',
+        args: [BigInt(gameState.score), BigInt(gameState.level)],
+        value: parseEther("0.015")
       })
-
-      // Update with real score
-      setGameState(prev => ({
-        ...prev,
-        userOnChainScore: prev.score,
-        onChainScores: [
-          { address: address!, score: prev.score, timestamp: Date.now() },
-          ...prev.onChainScores.filter(s => s.address.toLowerCase() !== address!.toLowerCase())
-        ].sort((a, b) => b.score - a.score)
-      }))
-      setScoreSaved(true)
-
     } catch (error) {
       console.error("Score submission failed:", error)
     }
   }
+
+  // Update the useEffect for handling successful submissions
+  useEffect(() => {
+    if (isSubmitted && submitHash) {
+      setScoreSaved(true)
+      // Refetch data to update leaderboard
+      refetchTopScores()
+      refetchPlayerStats()
+      
+      // Update local state
+      setGameState(prev => ({
+        ...prev,
+        userOnChainScore: prev.score
+      }))
+    }
+  }, [isSubmitted, submitHash, refetchTopScores, refetchPlayerStats])
 
   const startGame = () => {
     if (!isConnected) {
@@ -847,6 +897,7 @@ export default function PacmonGame() {
   }
 
   const restartGame = () => {
+    setScoreSaved(false) // Reset score saved state
     setGameState(prev => ({
       ...prev,
       pacmon: { x: 10, y: 15 },
@@ -862,7 +913,7 @@ export default function PacmonGame() {
       powerMode: false,
       powerModeTimer: 0,
       gameSpeed: 200,
-      isPaused: false  // ✅ Also added here for restart
+      isPaused: false
     }))
     
     // Reinitialize pellets
@@ -923,7 +974,6 @@ export default function PacmonGame() {
             </h1>
             <div className="space-y-3 text-center" style={{ color: COLORS.MONAD_OFF_WHITE }}>
               <div className="text-lg md:text-xl font-semibold" style={{ color: COLORS.MONAD_PURPLE }}>
-                {/* To edit this leaderboard text, search for "Leaderboard - Real Player Scores Only" in this file. */}
                 Leaderboard - Real Player Scores Only
               </div>
               <div className="space-y-2 bg-black bg-opacity-30 rounded-lg p-4">
@@ -1198,7 +1248,7 @@ export default function PacmonGame() {
             <p className="text-lg" style={{ color: COLORS.PELLET_ORANGE }}>
               Level Reached: {gameState.level}
             </p>
-            {gameState.score > (gameState.userOnChainScore || 0) && (
+            {gameState.score > (gameState.userOnChainScore || 0) && !scoreSaved && (
               <p className="text-lg" style={{ color: COLORS.GREEN }}>
                 🎉 New Personal Best! 🎉
               </p>
@@ -1206,17 +1256,30 @@ export default function PacmonGame() {
           </div>
 
           <div className="w-full max-w-md space-y-4 px-4">
-            <button
-              onClick={handleScoreSubmission}
-              disabled={scoreSaved}
-              className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: scoreSaved ? COLORS.MONAD_BERRY : COLORS.MONAD_PURPLE,
-                color: COLORS.WHITE 
-              }}
-            >
-              {scoreSaved ? 'Saved Successfully!' : 'Save Score Onchain [0.015 MON]'}
-            </button>
+            {/* Updated post-game score submission button */}
+            {isConnected && chainId === monadTestnet.id && (
+              <div className="text-center">
+                <button
+                  onClick={handleScoreSubmission}
+                  disabled={isSubmitting || scoreSaved}
+                  className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    backgroundColor: scoreSaved ? COLORS.MONAD_BERRY : COLORS.MONAD_PURPLE,
+                    color: COLORS.WHITE 
+                  }}
+                >
+                  {isSubmitting ? 'Saving Score...' : 
+                   scoreSaved ? 'Score Saved On-Chain!' : 
+                   `Save Score On-Chain (0.015 MON)`}
+                </button>
+                
+                {scoreSaved && (
+                  <p className="mt-3 text-sm" style={{ color: COLORS.GREEN }}>
+                    Your score has been permanently saved to the blockchain!
+                  </p>
+                )}
+              </div>
+            )}
 
             <button
               onClick={restartGame}
