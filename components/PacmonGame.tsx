@@ -544,7 +544,10 @@ export default function PacmonGame() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
+    <div 
+      className="flex flex-col min-h-screen w-full" 
+      style={{ backgroundColor: COLORS.MONAD_BLACK, touchAction: 'none' }}
+    >
       {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
         <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
           <div className="text-center space-y-4">
@@ -619,6 +622,7 @@ export default function PacmonGame() {
           className="flex flex-col h-screen w-full"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          style={{ touchAction: 'none' }} // Prevent scrolling on game screen
         >
           <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
             <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>PACMON</h1>
