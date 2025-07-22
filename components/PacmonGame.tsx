@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useFrame } from '@/components/farcaster-provider'
 import { farcasterFrame } from '@farcaster/frame-wagmi-connector'
-import { parseEther, Address } from 'viem'
+import { parseEther, Address, formatEther } from 'viem'
 import { monadTestnet } from 'viem/chains'
 import {
   useAccount,
   useConnect,
   useDisconnect,
-  useSendTransaction,
+  useBalance,
   useSwitchChain,
 } from 'wagmi'
 import { 
@@ -37,6 +37,7 @@ const GRID_SIZE = 21;
 const CELL_SIZE = 18;
 const GAME_WIDTH = GRID_SIZE * CELL_SIZE;
 const GAME_HEIGHT = GRID_SIZE * CELL_SIZE;
+const SUBMISSION_FEE = 0.015;
 
 const MAZE = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
@@ -61,13 +62,14 @@ interface Ghost {
 interface GameState {
   pacmon: Position; pacmonDirection: Position; ghosts: Ghost[]; pellets: Position[];
   powerPellets: Position[]; score: number; lives: number; level: number;
-  gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete' | 'postGame';
+  gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete' | 'postGame' | 'levelTransition';
   powerMode: boolean; powerModeTimer: number; highScore: number; totalPlayers: number;
   totalPlays: number; userOnChainScore: number | null; onChainScores: OnChainScore[];
   showLeaderboard: boolean; gameSpeed: number; isPaused: boolean;
+  transitionCountdown: number;
 }
 
-// --- SoundManager Class (unchanged) ---
+// --- SoundManager Class ---
 class SoundManager {
   private sounds: { [key: string]: HTMLAudioElement } = {}
   private soundsEnabled: boolean = true
@@ -94,6 +96,7 @@ class SoundManager {
     try { this.sounds.backgroundMusic.play().catch(e => console.log('Background music play failed:', e));
     } catch (error) { console.log('Background music error:', error); }
   }
+  pauseBackgroundMusic() { if (this.sounds.backgroundMusic) this.sounds.backgroundMusic.pause(); }
   stopBackgroundMusic() {
     if (this.sounds.backgroundMusic) { this.sounds.backgroundMusic.pause(); this.sounds.backgroundMusic.currentTime = 0; }
   }
@@ -198,18 +201,19 @@ export default function PacmonGame() {
   const { data: topScores, refetch: refetchTopScores } = useReadContract({ address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'getTopScores', args: [10n], query: { enabled: isConnected && chainId === monadTestnet.id, } });
   const { data: playerStats, refetch: refetchPlayerStats } = useReadContract({ address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'getPlayerStats', args: [address as Address], query: { enabled: !!address && isConnected && chainId === monadTestnet.id, } });
   const { data: totalPlayers } = useReadContract({ address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'getTotalPlayers', query: { enabled: isConnected && chainId === monadTestnet.id, } });
+  const { data: balance } = useBalance({ address: address, chainId: monadTestnet.id, });
   
-  // Updated wagmi hooks for better UI feedback
   const { writeContract: submitScore, data: submitHash, isPending: isSubmitting } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: submitHash, });
 
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 10, y: 15 }, pacmonDirection: { x: 0, y: 0 },
-    ghosts: getInitialGhosts(1), // Start with Level 1 ghosts
+    ghosts: getInitialGhosts(1),
     pellets: [], powerPellets: [], score: 0, lives: 3, level: 1,
     gameStatus: 'pregame', powerMode: false, powerModeTimer: 0, highScore: 0,
     totalPlayers: 0, totalPlays: 0, userOnChainScore: null, onChainScores: [],
-    showLeaderboard: false, gameSpeed: 250, isPaused: false // Slower start speed
+    showLeaderboard: false, gameSpeed: 250, isPaused: false,
+    transitionCountdown: 3,
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -343,18 +347,8 @@ export default function PacmonGame() {
           
           // --- Level Completion Logic ---
           if (newState.pellets.length === 0 && newState.powerPellets.length === 0) {
-            newState.level += 1; 
-            newState.score += 1000 * (newState.level - 1);
-            newState.gameSpeed = Math.max(120, 250 - (newState.level - 1) * 15); // Increase speed
-            
-            const pellets: Position[] = []; const powerPellets: Position[] = [];
-            for (let y = 0; y < GRID_SIZE; y++) { for (let x = 0; x < GRID_SIZE; x++) { if (MAZE[y][x] === 2) { pellets.push({ x, y }); } else if (MAZE[y][x] === 3) { powerPellets.push({ x, y }); } } }
-            
-            newState.pellets = pellets; 
-            newState.powerPellets = powerPellets;
-            newState.pacmon = { x: 10, y: 15 }; 
-            newState.pacmonDirection = { x: 0, y: 0 };
-            newState.ghosts = getInitialGhosts(newState.level); // Add more ghosts for new level
+            newState.gameStatus = 'levelTransition';
+            newState.transitionCountdown = 3;
           }
           
           return newState;
@@ -363,6 +357,38 @@ export default function PacmonGame() {
     }, gameState.gameSpeed);
     return () => clearInterval(gameLoop);
   }, [gameState.gameStatus, gameState.gameSpeed, gameState.isPaused]);
+
+  // --- Level Transition Timer ---
+  useEffect(() => {
+    if (gameState.gameStatus === 'levelTransition') {
+      const countdownTimer = setInterval(() => {
+        setGameState(prev => {
+          if (prev.transitionCountdown > 1) {
+            return { ...prev, transitionCountdown: prev.transitionCountdown - 1 };
+          } else {
+            // Start next level
+            const nextLevel = prev.level + 1;
+            const pellets: Position[] = []; const powerPellets: Position[] = [];
+            for (let y = 0; y < GRID_SIZE; y++) { for (let x = 0; x < GRID_SIZE; x++) { if (MAZE[y][x] === 2) { pellets.push({ x, y }); } else if (MAZE[y][x] === 3) { powerPellets.push({ x, y }); } } }
+            
+            return {
+              ...prev,
+              level: nextLevel,
+              score: prev.score + 1000 * (prev.level),
+              gameSpeed: Math.max(120, 250 - (nextLevel - 1) * 15),
+              pellets,
+              powerPellets,
+              pacmon: { x: 10, y: 15 },
+              pacmonDirection: { x: 0, y: 0 },
+              ghosts: getInitialGhosts(nextLevel),
+              gameStatus: 'playing',
+            };
+          }
+        });
+      }, 1000);
+      return () => clearInterval(countdownTimer);
+    }
+  }, [gameState.gameStatus]);
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return;
@@ -386,10 +412,22 @@ export default function PacmonGame() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  useEffect(() => { /* Canvas rendering logic remains unchanged */
+  useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.fillStyle = COLORS.MONAD_BLACK; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    if (gameState.gameStatus === 'levelTransition') {
+        ctx.fillStyle = COLORS.MONAD_PURPLE;
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Level ${gameState.level} Complete!`, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40);
+        ctx.fillStyle = COLORS.MONAD_OFF_WHITE;
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(`Get Ready... ${gameState.transitionCountdown}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10);
+        return;
+    }
+
     ctx.fillStyle = COLORS.ELECTRIC_BLUE; ctx.strokeStyle = COLORS.ELECTRIC_BLUE; ctx.lineWidth = 2;
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -442,16 +480,22 @@ export default function PacmonGame() {
 
   const handleScoreSubmission = async () => {
     if (!isConnected || chainId !== monadTestnet.id || !address) { setSubmitError("Please connect your wallet and switch to Monad Testnet"); return; }
+    
+    // --- New Low Balance Check ---
+    if (balance && parseFloat(formatEther(balance.value)) < SUBMISSION_FEE) {
+      setSubmitError(`Insufficient funds. You need at least ${SUBMISSION_FEE} MON to submit.`);
+      return;
+    }
+
     setSubmitError(null);
     try {
       submitScore({
         address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'submitScore',
-        args: [BigInt(gameState.score), BigInt(gameState.level)], value: parseEther("0.015")
+        args: [BigInt(gameState.score), BigInt(gameState.level)], value: parseEther(String(SUBMISSION_FEE))
       });
     } catch (error: any) {
       console.error("Score submission failed:", error);
-      if (error.message?.includes("insufficient funds")) { setSubmitError("Insufficient funds. You need at least 0.015 MON plus gas fees."); } 
-      else if (error.message?.includes("user rejected")) { setSubmitError("Transaction was cancelled."); } 
+      if (error.message?.includes("user rejected")) { setSubmitError("Transaction was cancelled."); } 
       else { setSubmitError("Failed to submit score. Please try again."); }
     }
   };
@@ -543,6 +587,19 @@ export default function PacmonGame() {
     touchStartRef.current = null; // Reset for next touch
   };
 
+  // --- Pause Handler ---
+  const togglePause = () => {
+    setGameState(prev => {
+      const isNowPaused = !prev.isPaused;
+      if (isNowPaused) {
+        soundManagerRef.current?.pauseBackgroundMusic();
+      } else {
+        soundManagerRef.current?.playBackgroundMusic();
+      }
+      return { ...prev, isPaused: isNowPaused };
+    });
+  };
+
   return (
     <div 
       className="flex flex-col min-h-screen w-full" 
@@ -617,7 +674,7 @@ export default function PacmonGame() {
           <button onClick={toggleLeaderboard} className="py-4 px-8 text-lg font-bold rounded-lg" style={{ backgroundColor: COLORS.MONAD_BERRY, color: COLORS.WHITE }}>Back to Game</button>
         </div>
       )}
-      {(gameState.gameStatus === 'playing') && (
+      {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'levelTransition') && (
         <div 
           className="flex flex-col h-screen w-full"
           onTouchStart={handleTouchStart}
@@ -629,7 +686,7 @@ export default function PacmonGame() {
             <div className="flex justify-center space-x-4 text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
               <div>Score: {gameState.score}</div><div>Lives: {gameState.lives}</div><div>Level: {gameState.level}</div>
               {gameState.powerMode && (<div style={{ color: COLORS.MONAD_PURPLE }}>Power: {Math.ceil(gameState.powerModeTimer / 5)}s</div>)}
-              <button onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))} className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.MONAD_BLUE, color: COLORS.WHITE }}>{gameState.isPaused ? '▶️ Play' : '⏸️ Pause'}</button>
+              <button onClick={togglePause} className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.MONAD_BLUE, color: COLORS.WHITE }}>{gameState.isPaused ? '▶️ Play' : '⏸️ Pause'}</button>
               <button onClick={toggleSounds} className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.MONAD_BLUE, color: COLORS.WHITE }}>{soundManagerRef.current?.getSoundsEnabled() ? '🔊' : '🔇'}</button>
             </div>
           </div>
@@ -662,7 +719,7 @@ export default function PacmonGame() {
                   {isSubmitting ? 'Confirm in wallet...' : 
                    isConfirming ? 'Saving to chain...' : 
                    isConfirmed ? 'Score Saved On-Chain!' : 
-                   `Save Score On-Chain (0.015 MON)`}
+                   `Save Score ( ${SUBMISSION_FEE} MON )`}
                 </button>
                 {isConfirmed && (<p className="mt-3 text-sm" style={{ color: COLORS.GREEN }}>Your score has been permanently saved to the blockchain!</p>)}
               </div>
