@@ -187,6 +187,7 @@ const getInitialGhosts = (level: number): Ghost[] => {
 export default function PacmonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const soundManagerRef = useRef<SoundManager | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null); // For swipe controls
   const { isEthProviderAvailable } = useFrame()
   const { isConnected, address, chainId } = useAccount()
   const { disconnect } = useDisconnect()
@@ -361,7 +362,7 @@ export default function PacmonGame() {
     return () => clearInterval(gameLoop);
   }, [gameState.gameStatus, gameState.gameSpeed, gameState.isPaused]);
 
-  const handleKeyPress = useCallback((event: KeyboardEvent) => { /* Unchanged */
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return;
     const { key } = event; let newDirection = { x: 0, y: 0 };
     switch (key) {
@@ -378,7 +379,7 @@ export default function PacmonGame() {
     }
   }, [gameState.pacmon, gameState.gameStatus]);
 
-  useEffect(() => { /* Unchanged */
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
@@ -501,7 +502,7 @@ export default function PacmonGame() {
   const toggleLeaderboard = () => { setGameState(prev => ({ ...prev, showLeaderboard: !prev.showLeaderboard })); };
   const toggleSounds = () => { const soundsEnabled = soundManagerRef.current?.toggleSounds(); return soundsEnabled; };
 
-  const handleDirectionPress = useCallback((direction: Position) => { /* Unchanged */
+  const handleDirectionPress = useCallback((direction: Position) => {
     if (gameState.gameStatus !== 'playing') return;
     let nextX = gameState.pacmon.x + direction.x; let nextY = gameState.pacmon.y + direction.y;
     if (nextX < 0) nextX = GRID_SIZE - 1; else if (nextX >= GRID_SIZE) nextX = 0;
@@ -510,7 +511,35 @@ export default function PacmonGame() {
     }
   }, [gameState.pacmon, gameState.gameStatus]);
 
-  return ( /* JSX Rendering remains unchanged */
+  // --- Swipe Controls Handlers ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+
+    const deltaX = touchEndX - touchStartRef.current.x;
+    const deltaY = touchEndY - touchStartRef.current.y;
+    const swipeThreshold = 30; // Minimum pixels for a swipe
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal swipe
+      if (Math.abs(deltaX) > swipeThreshold) {
+        handleDirectionPress(deltaX > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
+      }
+    } else { // Vertical swipe
+      if (Math.abs(deltaY) > swipeThreshold) {
+        handleDirectionPress(deltaY > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
+      }
+    }
+
+    touchStartRef.current = null; // Reset for next touch
+  };
+
+  return (
     <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
       {gameState.gameStatus === 'pregame' && !gameState.showLeaderboard && (
         <div className="flex flex-col items-center justify-center flex-1 w-full space-y-6">
@@ -582,7 +611,11 @@ export default function PacmonGame() {
         </div>
       )}
       {(gameState.gameStatus === 'playing') && (
-        <div className="flex flex-col h-screen w-full">
+        <div 
+          className="flex flex-col h-screen w-full"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="text-center py-2" style={{ backgroundColor: COLORS.MONAD_BLACK }}>
             <h1 className="text-xl md:text-2xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>PACMON</h1>
             <div className="flex justify-center space-x-4 text-sm" style={{ color: COLORS.MONAD_OFF_WHITE }}>
@@ -596,16 +629,7 @@ export default function PacmonGame() {
             <div className="flex-1 flex items-start justify-center pt-4">
               <canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} className="max-w-full max-h-full" style={{ backgroundColor: COLORS.MONAD_BLACK }}/>
             </div>
-            <div className="flex justify-center pb-8 pt-4 md:hidden">
-              <div className="flex flex-col items-center space-y-4">
-                <button onTouchStart={() => handleDirectionPress({ x: 0, y: -1 })} onClick={() => handleDirectionPress({ x: 0, y: -1 })} className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform" style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE, borderColor: COLORS.MONAD_OFF_WHITE, opacity: 0.9 }}>↑</button>
-                <div className="flex space-x-6">
-                  <button onTouchStart={() => handleDirectionPress({ x: -1, y: 0 })} onClick={() => handleDirectionPress({ x: -1, y: 0 })} className="w-28 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform" style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE, borderColor: COLORS.MONAD_OFF_WHITE, opacity: 0.9 }}>←</button>
-                  <button onTouchStart={() => handleDirectionPress({ x: 1, y: 0 })} onClick={() => handleDirectionPress({ x: 1, y: 0 })} className="w-28 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform" style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE, borderColor: COLORS.MONAD_OFF_WHITE, opacity: 0.9 }}>→</button>
-                </div>
-                <button onTouchStart={() => handleDirectionPress({ x: 0, y: 1 })} onClick={() => handleDirectionPress({ x: 0, y: 1 })} className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold border-2 active:scale-95 transition-transform" style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE, borderColor: COLORS.MONAD_OFF_WHITE, opacity: 0.9 }}>↓</button>
-              </div>
-            </div>
+            {/* On-screen buttons removed for a clean swipe-based UI */}
           </div>
         </div>
       )}
