@@ -198,8 +198,10 @@ export default function PacmonGame() {
   const { data: topScores, refetch: refetchTopScores } = useReadContract({ address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'getTopScores', args: [10n], query: { enabled: isConnected && chainId === monadTestnet.id, } });
   const { data: playerStats, refetch: refetchPlayerStats } = useReadContract({ address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'getPlayerStats', args: [address as Address], query: { enabled: !!address && isConnected && chainId === monadTestnet.id, } });
   const { data: totalPlayers } = useReadContract({ address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'getTotalPlayers', query: { enabled: isConnected && chainId === monadTestnet.id, } });
-  const { writeContract: submitScore, data: submitHash } = useWriteContract();
-  const { isLoading: isSubmitting, isSuccess: isSubmitted } = useWaitForTransactionReceipt({ hash: submitHash, });
+  
+  // Updated wagmi hooks for better UI feedback
+  const { writeContract: submitScore, data: submitHash, isPending: isSubmitting } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: submitHash, });
 
   const [gameState, setGameState] = useState<GameState>({
     pacmon: { x: 10, y: 15 }, pacmonDirection: { x: 0, y: 0 },
@@ -438,11 +440,11 @@ export default function PacmonGame() {
     } finally { setIsConnecting(false); }
   };
 
-  const handleScoreSubmission = async () => { /* Unchanged */
+  const handleScoreSubmission = async () => {
     if (!isConnected || chainId !== monadTestnet.id || !address) { setSubmitError("Please connect your wallet and switch to Monad Testnet"); return; }
     setSubmitError(null);
     try {
-      await submitScore({
+      submitScore({
         address: LEADERBOARD_CONTRACT_ADDRESS, abi: LEADERBOARD_ABI, functionName: 'submitScore',
         args: [BigInt(gameState.score), BigInt(gameState.level)], value: parseEther("0.015")
       });
@@ -454,12 +456,14 @@ export default function PacmonGame() {
     }
   };
 
-  useEffect(() => { /* Unchanged */
-    if (isSubmitted && submitHash) {
-      setScoreSaved(true); refetchTopScores(); refetchPlayerStats();
+  useEffect(() => {
+    if (isConfirmed) {
+      setScoreSaved(true); 
+      refetchTopScores(); 
+      refetchPlayerStats();
       setGameState(prev => ({ ...prev, userOnChainScore: prev.score }));
     }
-  }, [isSubmitted, submitHash, refetchTopScores, refetchPlayerStats]);
+  }, [isConfirmed, refetchTopScores, refetchPlayerStats]);
 
   const startGame = () => { /* Unchanged */
     if (!isConnected) { handleWalletConnect(); } 
@@ -639,16 +643,24 @@ export default function PacmonGame() {
             <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLORS.MONAD_PURPLE }}>Game Over!</h2>
             <p className="text-xl md:text-2xl" style={{ color: COLORS.MONAD_OFF_WHITE }}>Final Score: {gameState.score}</p>
             <p className="text-lg" style={{ color: COLORS.PELLET_ORANGE }}>Level Reached: {gameState.level}</p>
-            {gameState.score > (gameState.userOnChainScore || 0) && !scoreSaved && (<p className="text-lg" style={{ color: COLORS.GREEN }}>🎉 New Personal Best! 🎉</p>)}
+            {gameState.score > (gameState.userOnChainScore || 0) && !isConfirmed && (<p className="text-lg" style={{ color: COLORS.GREEN }}>🎉 New Personal Best! 🎉</p>)}
           </div>
           <div className="w-full max-w-md space-y-4 px-4">
             {isConnected && chainId === monadTestnet.id && (
               <div className="text-center">
                 {submitError && (<div className="w-full p-3 mb-4 rounded-lg border-2" style={{ borderColor: COLORS.GHOST_RED, backgroundColor: 'rgba(255, 0, 0, 0.1)', color: COLORS.GHOST_RED }}><div className="text-center text-sm">{submitError}</div></div>)}
-                <button onClick={handleScoreSubmission} disabled={isSubmitting || scoreSaved} className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: scoreSaved ? COLORS.MONAD_BERRY : COLORS.MONAD_PURPLE, color: COLORS.WHITE }}>
-                  {isSubmitting ? 'Saving Score...' : scoreSaved ? 'Score Saved On-Chain!' : `Save Score On-Chain (0.015 MON)`}
+                <button 
+                  onClick={handleScoreSubmission} 
+                  disabled={isSubmitting || isConfirming || isConfirmed} 
+                  className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  style={{ backgroundColor: isConfirmed ? COLORS.MONAD_BERRY : COLORS.MONAD_PURPLE, color: COLORS.WHITE }}
+                >
+                  {isSubmitting ? 'Confirm in wallet...' : 
+                   isConfirming ? 'Saving to chain...' : 
+                   isConfirmed ? 'Score Saved On-Chain!' : 
+                   `Save Score On-Chain (0.015 MON)`}
                 </button>
-                {scoreSaved && (<p className="mt-3 text-sm" style={{ color: COLORS.GREEN }}>Your score has been permanently saved to the blockchain!</p>)}
+                {isConfirmed && (<p className="mt-3 text-sm" style={{ color: COLORS.GREEN }}>Your score has been permanently saved to the blockchain!</p>)}
               </div>
             )}
             <button onClick={restartGame} className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95" style={{ backgroundColor: COLORS.MONAD_PURPLE, color: COLORS.WHITE }}>Play Again</button>
