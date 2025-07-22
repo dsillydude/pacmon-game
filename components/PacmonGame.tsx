@@ -270,6 +270,11 @@ export default function PacmonGame() {
     isPaused: false
   })
 
+  // Add state for enhanced user feedback
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
   // Initialize sound manager
   useEffect(() => {
     soundManagerRef.current = new SoundManager()
@@ -835,28 +840,43 @@ export default function PacmonGame() {
   }, [gameState])
 
   const handleWalletConnect = async () => {
-    if (!isConnected) {
-      if (isEthProviderAvailable) {
-        connect({ connector: farcasterFrame() })
+    setConnectionError(null)
+    setIsConnecting(true)
+    
+    try {
+      if (!isConnected) {
+        if (isEthProviderAvailable) {
+          await connect({ connector: farcasterFrame() })
+        } else {
+          setConnectionError("Farcaster wallet not available")
+          setIsConnecting(false)
+          return
+        }
       }
-      return
-    }
 
-    if (chainId !== monadTestnet.id) {
-      switchChain({ chainId: monadTestnet.id })
-      return
-    }
+      if (chainId !== monadTestnet.id) {
+        await switchChain({ chainId: monadTestnet.id })
+      }
 
-    setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
-    soundManagerRef.current?.playBackgroundMusic()
+      setGameState(prev => ({ ...prev, gameStatus: 'playing' }))
+      soundManagerRef.current?.playBackgroundMusic()
+    } catch (error) {
+      console.error("Wallet connection failed:", error)
+      setConnectionError("Failed to connect wallet. Please try again.")
+    } finally {
+      setIsConnecting(false)
+    }
   }
 
   // Update the score submission handler
   const handleScoreSubmission = async () => {
     if (!isConnected || chainId !== monadTestnet.id || !address) {
+      setSubmitError("Please connect your wallet and switch to Monad Testnet")
       return
     }
 
+    setSubmitError(null)
+    
     try {
       await submitScore({
         address: LEADERBOARD_CONTRACT_ADDRESS,
@@ -865,8 +885,15 @@ export default function PacmonGame() {
         args: [BigInt(gameState.score), BigInt(gameState.level)],
         value: parseEther("0.015")
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error("Score submission failed:", error)
+      if (error.message?.includes("insufficient funds")) {
+        setSubmitError("Insufficient funds. You need at least 0.015 MON plus gas fees.")
+      } else if (error.message?.includes("user rejected")) {
+        setSubmitError("Transaction was cancelled.")
+      } else {
+        setSubmitError("Failed to submit score. Please try again.")
+      }
     }
   }
 
@@ -1031,15 +1058,30 @@ export default function PacmonGame() {
           )}
 
           <div className="w-full max-w-md space-y-4 px-4">
+            {/* Error Messages */}
+            {connectionError && (
+              <div className="w-full p-3 rounded-lg border-2" style={{ 
+                borderColor: COLORS.GHOST_RED, 
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                color: COLORS.GHOST_RED 
+              }}>
+                <div className="text-center text-sm">
+                  {connectionError}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={startGame}
-              className="w-full py-6 px-8 text-xl md:text-2xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+              disabled={isConnecting}
+              className="w-full py-6 px-8 text-xl md:text-2xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
                 backgroundColor: COLORS.MONAD_BERRY, 
                 color: COLORS.WHITE 
               }}
             >
-              {!isConnected ? 'Connect Wallet to Play' : 
+              {isConnecting ? 'Connecting...' :
+               !isConnected ? 'Connect Wallet to Play' : 
                chainId !== monadTestnet.id ? 'Switch to Monad Testnet' : 
                'Start Game'}
             </button>
@@ -1260,6 +1302,19 @@ export default function PacmonGame() {
             {/* Updated post-game score submission button */}
             {isConnected && chainId === monadTestnet.id && (
               <div className="text-center">
+                {/* Error Messages */}
+                {submitError && (
+                  <div className="w-full p-3 mb-4 rounded-lg border-2" style={{ 
+                    borderColor: COLORS.GHOST_RED, 
+                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                    color: COLORS.GHOST_RED 
+                  }}>
+                    <div className="text-center text-sm">
+                      {submitError}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={handleScoreSubmission}
                   disabled={isSubmitting || scoreSaved}
