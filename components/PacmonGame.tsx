@@ -280,16 +280,17 @@ export default function PacmonGame() {
     // Data is now loaded via useReadContract hooks
     if (topScores && playerStats) {
       const formattedScores: OnChainScore[] = (topScores as any[]).map((score: any) => ({
-        address: score.player,
-        score: Number(score.score),
-        timestamp: Number(score.timestamp) * 1000, // Convert to milliseconds
+        player: score.player,
+        score: BigInt(score.score),
+        timestamp: BigInt(score.timestamp),
+        level: BigInt(score.level),
       }))
 
       setGameState(prev => ({
         ...prev,
         onChainScores: formattedScores,
         userOnChainScore: playerStats ? Number((playerStats as PlayerStats).bestScore) : null,
-        highScore: formattedScores[0]?.score || 0,
+        highScore: Number(formattedScores[0]?.score) || 0,
         totalPlayers: Number(totalPlayers || 0n)
       }))
     }
@@ -986,7 +987,7 @@ export default function PacmonGame() {
                       <span className="font-bold">{index === 0 ? '1st' : index === 1 ? '2nd' : '3rd'}</span>
                     </span>
                     <span className="font-mono">{score.score.toLocaleString()}</span>
-                    <span className="text-sm font-mono">{`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}</span>
+                    <span className="text-sm font-mono">{`${score.player.slice(0, 4)}...${score.player.slice(-4)}`}</span>
                   </div>
                 ))}
                 {gameState.onChainScores.length === 0 && (
@@ -1100,7 +1101,7 @@ export default function PacmonGame() {
                   {score.score.toLocaleString()}
                 </span>
                 <span className="text-sm font-mono" style={{ color: COLORS.MONAD_OFF_WHITE }}>
-                  {`${score.address.slice(0, 4)}...${score.address.slice(-4)}`}
+                  {`${score.player.slice(0, 4)}...${score.player.slice(-4)}`}
                 </span>
               </div>
             ))}
