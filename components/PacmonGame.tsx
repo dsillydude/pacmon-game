@@ -221,7 +221,8 @@ export default function PacmonGame() {
     userOnChainScore: null,
     onChainScores: [], // Start with empty array - no mock data
     showLeaderboard: false,
-    gameSpeed: 200
+    gameSpeed: 200,
+    isPaused: false  // ✅ FIXED: Added the missing isPaused property
   })
 
   // Initialize sound manager
@@ -860,7 +861,8 @@ export default function PacmonGame() {
       gameStatus: 'playing',
       powerMode: false,
       powerModeTimer: 0,
-      gameSpeed: 200
+      gameSpeed: 200,
+      isPaused: false  // ✅ Also added here for restart
     }))
     
     // Reinitialize pellets
@@ -1248,4 +1250,3 @@ export default function PacmonGame() {
     </div>
   )
 }
-
