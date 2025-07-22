@@ -1,7 +1,7 @@
 import { Address } from 'viem'
 
 // Replace with your deployed contract address
-export const LEADERBOARD_CONTRACT_ADDRESS: Address = '0x2065Df15B4B93383d7BB8dC497092b370aE15D64'
+export const LEADERBOARD_CONTRACT_ADDRESS: Address = '0xab39fCb73766554762Ec05e4435bE0683D136EA2'
 
 export const LEADERBOARD_ABI = [
   {
