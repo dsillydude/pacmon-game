@@ -62,7 +62,7 @@ interface Ghost {
 interface GameState {
   pacmon: Position; pacmonDirection: Position; ghosts: Ghost[]; pellets: Position[];
   powerPellets: Position[]; score: number; lives: number; level: number;
-  gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete' | 'postGame' | 'levelTransition';
+  gameStatus: 'pregame' | 'playing' | 'gameOver' | 'levelComplete' | 'postGame' | 'levelTransition' | 'pregameCountdown';
   powerMode: boolean; powerModeTimer: number; highScore: number; totalPlayers: number;
   totalPlays: number; userOnChainScore: number | null; onChainScores: OnChainScore[];
   showLeaderboard: boolean; gameSpeed: number; isPaused: boolean;
@@ -358,31 +358,34 @@ export default function PacmonGame() {
     return () => clearInterval(gameLoop);
   }, [gameState.gameStatus, gameState.gameSpeed, gameState.isPaused]);
 
-  // --- Level Transition Timer ---
+  // --- Level & Pregame Countdown Timers ---
   useEffect(() => {
-    if (gameState.gameStatus === 'levelTransition') {
+    if (gameState.gameStatus === 'levelTransition' || gameState.gameStatus === 'pregameCountdown') {
       const countdownTimer = setInterval(() => {
         setGameState(prev => {
           if (prev.transitionCountdown > 1) {
             return { ...prev, transitionCountdown: prev.transitionCountdown - 1 };
           } else {
-            // Start next level
-            const nextLevel = prev.level + 1;
-            const pellets: Position[] = []; const powerPellets: Position[] = [];
-            for (let y = 0; y < GRID_SIZE; y++) { for (let x = 0; x < GRID_SIZE; x++) { if (MAZE[y][x] === 2) { pellets.push({ x, y }); } else if (MAZE[y][x] === 3) { powerPellets.push({ x, y }); } } }
-            
-            return {
-              ...prev,
-              level: nextLevel,
-              score: prev.score + 1000 * (prev.level),
-              gameSpeed: Math.max(120, 250 - (nextLevel - 1) * 15),
-              pellets,
-              powerPellets,
-              pacmon: { x: 10, y: 15 },
-              pacmonDirection: { x: 0, y: 0 },
-              ghosts: getInitialGhosts(nextLevel),
-              gameStatus: 'playing',
-            };
+            // Start next level or start game
+            if (prev.gameStatus === 'levelTransition') {
+              const nextLevel = prev.level + 1;
+              const pellets: Position[] = []; const powerPellets: Position[] = [];
+              for (let y = 0; y < GRID_SIZE; y++) { for (let x = 0; x < GRID_SIZE; x++) { if (MAZE[y][x] === 2) { pellets.push({ x, y }); } else if (MAZE[y][x] === 3) { powerPellets.push({ x, y }); } } }
+              
+              return {
+                ...prev,
+                level: nextLevel,
+                score: prev.score + 1000 * (prev.level),
+                gameSpeed: Math.max(120, 250 - (nextLevel - 1) * 15),
+                pellets, powerPellets,
+                pacmon: { x: 10, y: 15 }, pacmonDirection: { x: 0, y: 0 },
+                ghosts: getInitialGhosts(nextLevel),
+                gameStatus: 'playing',
+              };
+            } else { // Pregame countdown finished
+              soundManagerRef.current?.playBackgroundMusic();
+              return { ...prev, gameStatus: 'playing' };
+            }
           }
         });
       }, 1000);
@@ -417,14 +420,25 @@ export default function PacmonGame() {
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.fillStyle = COLORS.MONAD_BLACK; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    if (gameState.gameStatus === 'levelTransition') {
+    if (gameState.gameStatus === 'levelTransition' || gameState.gameStatus === 'pregameCountdown') {
         ctx.fillStyle = COLORS.MONAD_PURPLE;
         ctx.font = 'bold 36px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`Level ${gameState.level} Complete!`, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40);
+        if (gameState.gameStatus === 'levelTransition') {
+            ctx.fillText(`Level ${gameState.level} Complete!`, GAME_WIDTH / 2, GAME_HEIGHT / 3);
+        } else {
+            ctx.font = 'bold 24px sans-serif';
+            ctx.fillText('How to Play', GAME_WIDTH / 2, GAME_HEIGHT / 4);
+            ctx.fillStyle = COLORS.MONAD_OFF_WHITE;
+            ctx.font = '16px sans-serif';
+            ctx.fillText('Swipe or use Arrow Keys to move.', GAME_WIDTH / 2, GAME_HEIGHT / 4 + 40);
+            ctx.fillText('Eat all pellets to win!', GAME_WIDTH / 2, GAME_HEIGHT / 4 + 70);
+        }
+        
         ctx.fillStyle = COLORS.MONAD_OFF_WHITE;
-        ctx.font = 'bold 28px sans-serif';
-        ctx.fillText(`Get Ready... ${gameState.transitionCountdown}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10);
+        ctx.font = 'bold 48px sans-serif';
+        const countdownText = gameState.transitionCountdown > 0 ? String(gameState.transitionCountdown) : "GO!";
+        ctx.fillText(countdownText, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40);
         return;
     }
 
@@ -473,7 +487,7 @@ export default function PacmonGame() {
         else { setConnectionError("Farcaster wallet not available"); setIsConnecting(false); return; }
       }
       if (chainId !== monadTestnet.id) { await switchChain({ chainId: monadTestnet.id }); }
-      setGameState(prev => ({ ...prev, gameStatus: 'playing' })); soundManagerRef.current?.playBackgroundMusic();
+      setGameState(prev => ({ ...prev, gameStatus: 'pregameCountdown', transitionCountdown: 3 }));
     } catch (error) { console.error("Wallet connection failed:", error); setConnectionError("Failed to connect wallet. Please try again.");
     } finally { setIsConnecting(false); }
   };
@@ -509,10 +523,10 @@ export default function PacmonGame() {
     }
   }, [isConfirmed, refetchTopScores, refetchPlayerStats]);
 
-  const startGame = () => { /* Unchanged */
+  const startGame = () => {
     if (!isConnected) { handleWalletConnect(); } 
     else if (chainId !== monadTestnet.id) { switchChain({ chainId: monadTestnet.id }); } 
-    else { setGameState(prev => ({ ...prev, gameStatus: 'playing' })); soundManagerRef.current?.playBackgroundMusic(); }
+    else { setGameState(prev => ({ ...prev, gameStatus: 'pregameCountdown', transitionCountdown: 3 })); }
   };
 
   const restartGame = () => {
@@ -535,15 +549,15 @@ export default function PacmonGame() {
       score: 0, 
       lives: 3, 
       level: initialLevel, 
-      gameStatus: 'playing', 
+      gameStatus: 'pregameCountdown', 
       powerMode: false,
       powerModeTimer: 0, 
       gameSpeed: 250, // Reset to slower speed
       isPaused: false,
       pellets: pellets,
       powerPellets: powerPellets,
+      transitionCountdown: 3,
     }));
-    soundManagerRef.current?.playBackgroundMusic();
   };
 
   const exitGame = () => { setGameState(prev => ({ ...prev, gameStatus: 'pregame' })); soundManagerRef.current?.stopBackgroundMusic(); };
@@ -674,7 +688,7 @@ export default function PacmonGame() {
           <button onClick={toggleLeaderboard} className="py-4 px-8 text-lg font-bold rounded-lg" style={{ backgroundColor: COLORS.MONAD_BERRY, color: COLORS.WHITE }}>Back to Game</button>
         </div>
       )}
-      {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'levelTransition') && (
+      {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'levelTransition' || gameState.gameStatus === 'pregameCountdown') && (
         <div 
           className="flex flex-col h-screen w-full"
           onTouchStart={handleTouchStart}
