@@ -191,7 +191,7 @@ export default function PacmonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const soundManagerRef = useRef<SoundManager | null>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null); // For swipe controls
-  const { isEthProviderAvailable } = useFrame()
+  const { isEthProviderAvailable, actions } = useFrame()
   const { isConnected, address, chainId } = useAccount()
   const { disconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
@@ -735,6 +735,14 @@ export default function PacmonGame() {
                    isConfirmed ? 'Score Saved On-Chain!' : 
                    `Save Score ( ${SUBMISSION_FEE} MON )`}
                 </button>
+                <button 
+                  onClick={handleCastScore} 
+                  disabled={!actions}
+                  className="w-full py-6 px-8 text-lg md:text-xl font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  style={{ backgroundColor: COLORS.MONAD_BLUE, color: COLORS.WHITE }}
+                >
+                  🎯 Cast Score
+                </button>
                 {isConfirmed && (<p className="mt-3 text-sm" style={{ color: COLORS.GREEN }}>Your score has been permanently saved to the blockchain!</p>)}
               </div>
             )}
@@ -750,3 +758,23 @@ export default function PacmonGame() {
     </div>
   )
 }
+
+
+  const handleCastScore = async () => {
+    if (!actions) {
+      console.error("Farcaster actions not available");
+      return;
+    }
+
+    try {
+      const castText = `🎮 Just scored ${gameState.score.toLocaleString()} points in Pacmon! 🏆\n\nReached level ${gameState.level} on @monad 🟣\n\nCan you beat my score? 🎯`;
+      
+      await actions.composeCast({
+        text: castText,
+      });
+    } catch (error) {
+      console.error("Failed to compose cast:", error);
+    }
+  };
+
+
